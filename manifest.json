@@ -1,29 +1,25 @@
 {
   "name": "FWPS Water Monitor",
   "short_name": "FWPS",
-  "description": "Khaur Fresh Water Distribution Monitoring System",
-  "start_url": "/index.html",
+  "description": "Khaur Fresh Water & IKHLAS Water Distribution Monitoring System \u2014 POL Khaur",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#060e18",
   "theme_color": "#0ea5e9",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "categories": [
-    "utilities",
-    "productivity"
-  ],
-  "screenshots": []
+  ]
 }

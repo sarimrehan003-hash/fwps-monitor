@@ -1,11 +1,10 @@
 const CACHE = 'fwps-v8';
 const ASSETS = [
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png',
-  'https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  './',
+  './index.html',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
 ];
 
 self.addEventListener('install', e => {
@@ -27,20 +26,19 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // For Firebase requests — always go network
-  if (e.request.url.includes('firebase') || e.request.url.includes('googleapis.com/identitytoolkit')) {
+  if (e.request.url.includes('firebase') || e.request.url.includes('gstatic') || e.request.url.includes('googleapis') || e.request.url.includes('jsdelivr') || e.request.url.includes('cloudflare')) {
     return;
   }
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(resp => {
-        if (resp && resp.status === 200 && resp.type === 'basic') {
+        if (resp && resp.status === 200) {
           const clone = resp.clone();
           caches.open(CACHE).then(cache => cache.put(e.request, clone));
         }
         return resp;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => caches.match('./index.html'));
     })
   );
 });
