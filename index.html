@@ -13,8 +13,82 @@
 <title>FWPS Water Monitor</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// ══ FIREBASE REST API — No SDK needed, works on any connection ══
+const FBURL = "https://fwps-monitor-e033e-default-rtdb.asia-southeast1.firebasedatabase.app";
+const FBKEY = "AIzaSyDyzYmbanapN7bXZiKh1OrAa8OBJVghvAE";
+
+// Simulate firebase.database() compatible API using REST
+window.firebase = {
+  apps: ['app'],
+  app: ()=>({delete:()=>Promise.resolve()}),
+  database: ()=>({
+    ref: (path)=>new FBRef(path),
+    ref_: (path)=>new FBRef(path),
+  })
+};
+window.DB = {ref:(path)=>new FBRef(path)};
+
+class FBRef {
+  constructor(path){ this.path=path.replace(/^fwps\//,''); this._listeners={}; }
+  child(p){ return new FBRef('fwps/'+this.path+'/'+p); }
+  set(val){ return fbSet(this.path, val); }
+  push(val){ const k='-'+Date.now()+Math.random().toString(36).substr(2,5); return fbSet(this.path+'/'+k,val).then(()=>({key:k})); }
+  remove(){ return fbSet(this.path, null); }
+  once(ev,cb){
+    return fbGet(this.path).then(val=>{
+      const snap={val:()=>val,exists:()=>val!==null};
+      if(cb)cb(snap);
+      return snap;
+    });
+  }
+  on(ev,cb){
+    // Immediate fetch
+    fbGet(this.path).then(val=>{
+      cb({val:()=>val,exists:()=>val!==null});
+    });
+    // Poll every 5 seconds for live updates
+    const id=setInterval(()=>{
+      fbGet(this.path).then(val=>{
+        cb({val:()=>val,exists:()=>val!==null});
+      }).catch(()=>{});
+    },5000);
+    this._listeners[ev]=id;
+    return id;
+  }
+  off(){ Object.values(this._listeners).forEach(id=>clearInterval(id)); }
+  orderByChild(){ return this; }
+  equalTo(){ return this; }
+  limitToLast(n){
+    const orig=fbGet;
+    this._limit=n;
+    return this;
+  }
+}
+
+async function fbGet(path){
+  try{
+    const url=FBURL+'/fwps/'+path+'.json?auth='+FBKEY;
+    const r=await fetch(url);
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){return null;}
+}
+
+async function fbSet(path, val){
+  try{
+    const url=FBURL+'/fwps/'+path+'.json?auth='+FBKEY;
+    const method=val===null?'DELETE':'PUT';
+    const opts={method,headers:{'Content-Type':'application/json'}};
+    if(val!==null)opts.body=JSON.stringify(val);
+    const r=await fetch(url,opts);
+    return r.ok;
+  }catch(e){return false;}
+}
+
+window._fbLoaded=true;
+console.log('Firebase REST API ready');
+</script>
 <style>
 :root{
   --blue:#0ea5e9;--bd:#0369a1;--bg:#060e18;--bg2:#0c1c2e;--bg3:#102038;
@@ -1805,8 +1879,8 @@ function exportLeakageXL(){
 }
 
 // ══ FIREBASE DB HELPERS ══
-function dbSet(path,val){if(DEMO_MODE){saveDemoData();return Promise.resolve();}setSyncStatus('syncing');return DB.ref('fwps/'+path).set(val).then(()=>setSyncStatus('connected')).catch(e=>setSyncStatus('error'));}
-function dbPush(path,val){if(DEMO_MODE){saveDemoData();return;}setSyncStatus('syncing');DB.ref('fwps/'+path).push(val).then(()=>setSyncStatus('connected')).catch(e=>setSyncStatus('error'));}
+function dbSet(path,val){if(DEMO_MODE){saveDemoData();return Promise.resolve();}setSyncStatus('syncing');return fbSet(path,val).then(ok=>{setSyncStatus(ok?'connected':'error');}).catch(()=>setSyncStatus('error'));}
+function dbPush(path,val){if(DEMO_MODE){saveDemoData();return;}setSyncStatus('syncing');const k='-'+Date.now()+Math.random().toString(36).substr(2,5);fbSet(path+'/'+k,val).then(ok=>{setSyncStatus(ok?'connected':'error');}).catch(()=>setSyncStatus('error'));}
 function syncLiveState(){dbSet('liveState',JSON.parse(JSON.stringify(liveState)));}
 
 // ══ STORAGE ══
@@ -1836,37 +1910,37 @@ function startApp(){
   updateClock();setInterval(updateClock,1000);setInterval(updateRuntimeSummary,30000);
   const ldd=document.getElementById('log-dev');if(ldd)ldd.textContent='Device: '+deviceId;
   if(DEMO_MODE){renderAll();return;}
-  const root=DB.ref('fwps');
-  root.child('liveState').on('value',snap=>{
+  // Firebase REST polling started
+  new FBRef('liveState').on('value',snap=>{
     const v=snap.val();if(v)Object.assign(liveState,v);
     restorePumpToggles();restorePondInputs();restoreOpSelects();updateAlerts();renderAll();
   });
-  root.child('schedule').on('value',snap=>{
+  new FBRef('schedule').on('value',snap=>{
     const v=snap.val();if(v&&v.morning&&v.evening){schedule.morning=v.morning;schedule.evening=v.evening;if(v.community)schedule.community=v.community;}
     buildAdminSchedule();renderScheduleRows();
   });
-  root.child('pondRecords').on('value',snap=>{const v=snap.val();pondRecords=v?Object.values(v):[];pondRecords.sort((a,b)=>a.date.localeCompare(b.date));renderPondTable();});
-  root.child('pumpEvents').on('value',snap=>{const v=snap.val();pumpEvents=v?Object.values(v):[];pumpEvents.sort((a,b)=>((a.date||'')+(a.time||'')).localeCompare((b.date||'')+(b.time||'')));renderPumpTable();});
-  root.child('leakageRecords').on('value',snap=>{const v=snap.val();leakageRecords=v?Object.values(v):[];renderLeakageTable();updateDashLastLeak();if(adminUnlocked)buildAdminLeakage();});
-  root.child('activityLog').limitToLast(60).on('value',snap=>{const v=snap.val();if(v){activityLog=Object.values(v);activityLog.sort((a,b)=>b.ts-a.ts);renderLog();}});
-  root.child('config/adminPwd').on('value',snap=>{if(snap.val())localStorage.setItem('fwps_admin_pwd',snap.val());});
-  root.child('scheduleProblems').on('value',snap=>{
+  new FBRef('pondRecords').on('value',snap=>{const v=snap.val();pondRecords=v?Object.values(v):[];pondRecords.sort((a,b)=>a.date.localeCompare(b.date));renderPondTable();});
+  new FBRef('pumpEvents').on('value',snap=>{const v=snap.val();pumpEvents=v?Object.values(v):[];pumpEvents.sort((a,b)=>((a.date||'')+(a.time||'')).localeCompare((b.date||'')+(b.time||'')));renderPumpTable();});
+  new FBRef('leakageRecords').on('value',snap=>{const v=snap.val();leakageRecords=v?Object.values(v):[];renderLeakageTable();updateDashLastLeak();if(adminUnlocked)buildAdminLeakage();});
+  new FBRef('activityLog').on('value',snap=>{const v=snap.val();if(v){activityLog=Object.values(v);activityLog.sort((a,b)=>b.ts-a.ts);renderLog();}});
+  new FBRef('config/adminPwd').on('value',snap=>{if(snap.val())localStorage.setItem('fwps_admin_pwd',snap.val());});
+  new FBRef('scheduleProblems').on('value',snap=>{
     const v=snap.val();
     if(v){scheduleProblems=Object.values(v);scheduleProblems.sort((a,b)=>b.ts-a.ts);}
     else scheduleProblems=[];
     updateZoneProblemDisplay();
   });
-  root.child('users').on('value',snap=>{
+  new FBRef('users').on('value',snap=>{
     const v=snap.val();if(!v)return;
     try{localStorage.setItem('fwps_users',JSON.stringify(v));}catch(e){}
   });
-  root.child('config/operatorNames').on('value',snap=>{
+  new FBRef('config/operatorNames').on('value',snap=>{
     const v=snap.val();if(!v)return;
     if(v.fw){FWPS_OPS.length=0;v.fw.forEach(n=>FWPS_OPS.push(n));editableFwOps=[...v.fw];}
     if(v.iw){IWPS_OPS.length=0;v.iw.forEach(n=>IWPS_OPS.push(n));editableIwOps=[...v.iw];}
     buildOpCards();
   });
-  root.child('config/devPwd').on('value',snap=>{if(snap.val())localStorage.setItem('fwps_dev_pwd',snap.val());});
+  new FBRef('config/devPwd').on('value',snap=>{if(snap.val())localStorage.setItem('fwps_dev_pwd',snap.val());});
 }
 
 function renderAll(){
@@ -1986,7 +2060,7 @@ function deleteRecord(){
       const idx=pumpEvents.findIndex(x=>x.ts===r.ts);
       if(idx>=0)pumpEvents.splice(idx,1);
       // Find Firebase key by ts
-      if(!DEMO_MODE)DB.ref('fwps/pumpEvents').orderByChild('ts').equalTo(r.ts).once('value',snap=>{if(snap.val()){Object.keys(snap.val()).forEach(k=>DB.ref('fwps/pumpEvents/'+k).remove());}});
+      if(!DEMO_MODE)new FBRef('pumpEvents').once('value',snap=>{if(snap.val()){Object.keys(snap.val()).forEach(k=>DB.ref('fwps/pumpEvents/'+k).remove());}});
     } else if(type==='leakageRecords'){
       const idx=leakageRecords.findIndex(x=>x.id===r.id);
       if(idx>=0)leakageRecords.splice(idx,1);
