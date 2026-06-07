@@ -13,19 +13,8 @@
 <title>FWPS Water Monitor</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script>
-function loadScript(src,ok,err){var s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=err;document.head.appendChild(s);}
-var FB_CDNS=['https://www.gstatic.com/firebasejs/9.23.0/','https://cdn.jsdelivr.net/npm/firebase@9.23.0/compat/'];
-window._fbLoaded=false;
-function tryFB(i){
-  if(i>=FB_CDNS.length){window._fbFailed=true;return;}
-  var b=FB_CDNS[i],isG=b.includes('gstatic');
-  var a=isG?b+'firebase-app-compat.js':b+'app/dist/index.js';
-  var d=isG?b+'firebase-database-compat.js':b+'database/dist/index.js';
-  loadScript(a,function(){loadScript(d,function(){window._fbLoaded=true;},function(){tryFB(i+1);});},function(){tryFB(i+1);});
-}
-tryFB(0);
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 :root{
   --blue:#0ea5e9;--bd:#0369a1;--bg:#060e18;--bg2:#0c1c2e;--bg3:#102038;
@@ -878,20 +867,28 @@ function connectFirebase() {
   initFirebase(FB_CONFIG);
 }
 function initFirebase(cfg){
-  let att=0;
-  function tryI(){
-    att++;
+  // Scripts loaded synchronously — try immediately then retry
+  function tryI(att){
     if(typeof firebase!=='undefined'){
       try{
         if(firebase.apps&&firebase.apps.length)firebase.app().delete().then(()=>_initFB(cfg));
         else _initFB(cfg);
-      }catch(e){showSetupErr('Firebase error: '+e.message);}
-    } else if(att<40){
-      const c=document.getElementById('conn-txt');if(c)c.textContent='Loading Firebase… ('+att+')';
-      setTimeout(tryI,500);
-    } else {showSetupErr('Firebase failed to load. Check internet or use Demo Mode.');}
+      }catch(e){
+        const em=document.getElementById('setup-err');
+        if(em)em.textContent='Error: '+e.message;
+        // fallback to offline
+        setTimeout(()=>useDemoMode(),2000);
+      }
+    } else if(att<20){
+      setTimeout(()=>tryI(att+1),300);
+    } else {
+      // Firebase not available — go offline mode
+      const em=document.getElementById('setup-connect-msg');
+      if(em)em.textContent='No internet — switching to offline mode…';
+      setTimeout(()=>useDemoMode(),1500);
+    }
   }
-  setTimeout(tryI,300);
+  tryI(0);
 }
 function _initFB(cfg){
   try{
@@ -2431,7 +2428,7 @@ function updateCommunityZoneStatus(){
 })();
 </script>
 <script>
-if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").then(r=>console.log("SW OK")).catch(e=>console.log("SW fail",e));});}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js").catch(e=>console.log(e));});}
 </script>
 </body>
 </html>
