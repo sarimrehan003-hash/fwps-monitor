@@ -567,17 +567,21 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
   <div id="settings-lock" style="text-align:center;padding:30px 16px;">
     <div style="font-size:40px;margin-bottom:12px;">⚙️</div>
     <div style="font-size:16px;font-weight:700;color:var(--cyan);margin-bottom:6px;">Settings</div>
-    <div style="font-size:11px;color:var(--tx3);margin-bottom:18px;">Protected with Admin Password</div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;" id="settings-lock-msg">Enter your 4-digit PIN to access your settings</div>
+    <div style="font-size:10px;color:var(--tx3);margin-bottom:18px;" id="settings-lock-sub">Only sections you have permission for will be shown</div>
     <div style="max-width:260px;margin:0 auto;">
-      <div class="ig"><label>ADMIN PASSWORD</label><input type="password" id="settings-pwd" placeholder="••••••" style="text-align:center;" onkeydown="if(event.key==='Enter')unlockSettings()"></div>
+      <div class="ig"><label id="settings-pwd-label">YOUR 4-DIGIT PIN</label>
+        <input type="password" id="settings-pwd" placeholder="••••" maxlength="6" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:8px;" onkeydown="if(event.key==='Enter')unlockSettings()">
+      </div>
       <div style="color:var(--red);font-size:11px;text-align:center;min-height:14px;margin-bottom:6px;" id="settings-err"></div>
-      <button class="btn" onclick="unlockSettings()">🔓 Unlock Settings</button>
+      <button class="btn" onclick="unlockSettings()">🔓 Open My Settings</button>
     </div>
   </div>
 
   <div id="settings-content" style="display:none;">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button class="btn ghost sm" onclick="lockSettings()">🔒 Lock</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+      <div id="settings-user-context" style="display:none;font-size:11px;padding:6px 10px;background:var(--bg3);border-radius:8px;"></div>
+      <button class="btn ghost sm" onclick="lockSettings()" style="margin-left:auto;">🔒 Lock</button>
     </div>
 
     <!-- 1. POND LEVEL -->
@@ -814,9 +818,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
     </div>
     <div style="font-size:11px;color:var(--tx2);margin-bottom:12px;background:var(--bg3);border-radius:var(--r2);padding:10px;line-height:1.9;">
       <div id="perm-desc-view" style="display:none;color:var(--red);">Can only view the Dashboard. Cannot make any changes.</div>
-      <div id="perm-desc-operator" style="color:var(--amber);">Can view Dashboard. Can turn pumps ON/OFF, update operator duties, and save pond levels.</div>
-      <div id="perm-desc-supervisor" style="display:none;color:var(--blue);">Can view Dashboard and Records tab. Can save all operational data.</div>
-      <div id="perm-desc-admin" style="display:none;color:var(--green);">Full access to all tabs including Settings. Can manage other employees.</div>
+      <div id="perm-desc-operator" style="color:var(--amber);">Can view Dashboard &amp; Settings (using their own PIN). Can update pumps, operators, and pond levels.</div>
+      <div id="perm-desc-supervisor" style="display:none;color:var(--blue);">Can view Dashboard, Records, and Settings (with own PIN). Can update schedule and leakage records too.</div>
+      <div id="perm-desc-admin" style="display:none;color:var(--green);">Full access to all tabs. Can manage employees, change passwords, access code editor. Uses admin password OR PIN.</div>
       <div id="perm-desc-blocked" style="display:none;color:var(--tx3);">Completely blocked. Person will see Access Denied screen.</div>
     </div>
     <div style="margin-bottom:12px;">
@@ -1370,7 +1374,24 @@ function showTab(id,el){
   if(pg)pg.classList.add('active');
   if(el)el.classList.add('active');
   if(id==='records') renderActiveRecord();
-  if(id==='settings') buildSettingsForms();
+  if(id==='settings'){
+    buildSettingsForms();
+    // Update lock screen label for current user
+    const isAdmin=currentUser&&currentUser.role==='admin';
+    const msgEl=document.getElementById('settings-lock-msg');
+    const subEl=document.getElementById('settings-lock-sub');
+    const lblEl=document.getElementById('settings-pwd-label');
+    if(isAdmin){
+      if(msgEl)msgEl.textContent='Enter your Admin Password or PIN';
+      if(subEl)subEl.textContent='Full access — all sections visible';
+      if(lblEl)lblEl.textContent='ADMIN PASSWORD OR PIN';
+    } else {
+      const name=currentUser?currentUser.name.split(' ')[0]:'User';
+      if(msgEl)msgEl.textContent='Enter your 4-digit PIN, '+name;
+      if(subEl)subEl.textContent='Only sections you have permission for will be shown';
+      if(lblEl)lblEl.textContent='YOUR 4-DIGIT PIN';
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1775,22 +1796,89 @@ function isTodayZone(prefix){
 // ══════════════════════════════════════════════════════════
 function unlockSettings(){
   const v=document.getElementById('settings-pwd').value;
-  const pwd=localStorage.getItem('fwps_pwd')||DEFAULT_PWD;
-  if(v===pwd){
+  const errEl=document.getElementById('settings-err');
+  if(!v){if(errEl)errEl.textContent='Enter your PIN.';return;}
+
+  // Admin can use their password OR their PIN
+  const adminPwd=localStorage.getItem('fwps_pwd')||DEFAULT_PWD;
+  const isAdmin=currentUser&&currentUser.role==='admin';
+
+  if(isAdmin&&v===adminPwd){
+    // Admin using admin password
     settingsUnlocked=true;
-    document.getElementById('settings-lock').style.display='none';
-    document.getElementById('settings-content').style.display='block';
-    document.getElementById('settings-pwd').value='';
-    document.getElementById('settings-err').textContent='';
-    buildSettingsForms();
-  } else {
-    document.getElementById('settings-err').textContent='Incorrect password';
+    showSettingsForUser('admin');
+    return;
+  }
+
+  // Check if matches current user PIN
+  if(currentUser&&currentUser.pin&&String(currentUser.pin)===String(v)){
+    settingsUnlocked=true;
+    showSettingsForUser(currentUser.role);
+    return;
+  }
+
+  // Check against all registered users by PIN (find who this is)
+  const matchedUser=Object.values(lv.registeredUsers||{}).find(u=>String(u.pin)===String(v)&&u.phone===currentUser?.phone);
+  if(matchedUser){
+    settingsUnlocked=true;
+    showSettingsForUser(matchedUser.role, matchedUser.permissions);
+    return;
+  }
+
+  if(errEl)errEl.textContent='Incorrect PIN. Use your 4-digit login PIN.';
+}
+
+function showSettingsForUser(role, customPerms){
+  document.getElementById('settings-lock').style.display='none';
+  document.getElementById('settings-content').style.display='block';
+  const pwdEl=document.getElementById('settings-pwd');if(pwdEl)pwdEl.value='';
+  const errEl=document.getElementById('settings-err');if(errEl)errEl.textContent='';
+
+  buildSettingsForms();
+
+  // Show/hide sections based on permissions
+  const isAdmin=role==='admin';
+  const perms=customPerms||ROLE_DEFAULTS[role]||ROLE_DEFAULTS.view;
+  const allowedSections=isAdmin?['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev']:(perms.sections||[]);
+
+  const allSections=['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev'];
+  // These sections are ADMIN ONLY regardless of permissions
+  const adminOnlySections=['s-emp','s-pwd','s-dev'];
+
+  allSections.forEach(sid=>{
+    const bodyEl=document.getElementById(sid);
+    if(!bodyEl)return;
+    const sectionDiv=bodyEl.closest('.settings-section');
+    if(!sectionDiv)return;
+    // Admin-only sections: never show to non-admin
+    if(adminOnlySections.includes(sid)&&!isAdmin){
+      sectionDiv.style.display='none';
+      return;
+    }
+    const canAccess=isAdmin||allowedSections.includes(sid);
+    sectionDiv.style.display=canAccess?'':'none';
+  });
+
+  // Show user context at top of settings
+  const contextEl=document.getElementById('settings-user-context');
+  if(contextEl){
+    contextEl.innerHTML=isAdmin
+      ? '<span style="color:var(--green);">🔑 Admin Access — All sections visible</span>'
+      : '<span style="color:var(--blue);">👤 '+escHtml(currentUser?.name||'User')+' — Only your permitted sections shown</span>';
+    contextEl.style.display='block';
   }
 }
+
 function lockSettings(){
   settingsUnlocked=false;
   document.getElementById('settings-lock').style.display='block';
   document.getElementById('settings-content').style.display='none';
+  // Reset all sections visible for next unlock
+  ['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev'].forEach(sid=>{
+    const bodyEl=document.getElementById(sid);
+    if(bodyEl){const sec=bodyEl.closest('.settings-section');if(sec)sec.style.display='';}
+  });
+  const ctx=document.getElementById('settings-user-context');if(ctx)ctx.style.display='none';
 }
 
 function toggleSection(id){
