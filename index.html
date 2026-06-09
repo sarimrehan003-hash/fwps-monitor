@@ -1274,7 +1274,11 @@ function startFirebaseSync(){
       if(data.operators) lv.operators=data.operators;
       if(data.schedule) Object.assign(lv.schedule,data.schedule);
       if(data.leakages) lv.leakages=data.leakages;
-      if(data.registeredUsers) lv.registeredUsers=data.registeredUsers;
+      if(data.registeredUsers){
+      // Inject the Firebase key into each user object so we always have it
+      Object.entries(data.registeredUsers).forEach(([k,u])=>{ u._fbKey=k; });
+      lv.registeredUsers=data.registeredUsers;
+    }
     if(data.pinResetRequests) lv.pinResetRequests=data.pinResetRequests;
       if(data.rec) Object.assign(rec,data.rec);
     if(data.config&&data.config.devPwd) localStorage.setItem('fwps_dev_pwd',data.config.devPwd);
@@ -2527,7 +2531,11 @@ function buildEmployeeList(){
   const roleLabel=(r)=>({view:'👁 View Only',operator:'📋 Operator',supervisor:'⚙️ Supervisor',admin:'🔑 Admin',blocked:'🚫 Blocked',pending:'⏳ Awaiting Approval'})[r||'pending']||'⏳ Awaiting Approval';
   const roleCls=(r)=>({view:'perm-view',operator:'perm-operator',supervisor:'perm-supervisor',admin:'perm-admin',blocked:'perm-blocked',pending:'perm-view'})[r||'pending']||'perm-view';
 
-  Object.entries(lv.registeredUsers||{}).sort((a,b)=>{const ord=(u)=>u.blocked?3:(u.role==='pending'||!u.role)?0:1;return ord(a[1])-ord(b[1]);}).forEach(([fbKey,u])=>{
+  const entries=Object.entries(lv.registeredUsers||{});
+  entries.sort((a,b)=>{const ord=(u)=>u.blocked?3:(u.role==='pending'||!u.role)?0:1;return ord(a[1])-ord(b[1]);});
+  entries.forEach(([fbKey,u])=>{
+    // Ensure _fbKey is set on this user for reliable lookups
+    u._fbKey=fbKey;
     const role=u.role||'pending';
     const isPending=(role==='pending'||!u.role);
     const isBlocked=!!u.blocked;
@@ -2638,19 +2646,18 @@ function cleanDuplicates(){
   const byPhone={};
   // Group by phone
   Object.entries(lv.registeredUsers||{}).forEach(([key,u])=>{
-    const phone=u.phone||key;
-    if(!byPhone[phone]){byPhone[phone]=[];}
-    byPhone[phone].push({key,u});
+    const phone=u.phone||'noPhone_'+key;
+    if(!byPhone[phone]) byPhone[phone]=[];
+    byPhone[phone].push({key, u, ts:u.ts||0});
   });
   let removed=0;
-  Object.values(byPhone).forEach(entries=>{
-    if(entries.length<=1)return;
-    // Sort by ts desc — keep newest
-    entries.sort((a,b)=>(b.u.ts||0)-(a.u.ts||0));
-    // Keep first (newest), delete rest
-    entries.slice(1).forEach(({key,u})=>{
+  Object.values(byPhone).forEach(group=>{
+    if(group.length<=1) return;
+    // Sort newest first — keep first, delete rest
+    group.sort((a,b)=>b.ts-a.ts);
+    group.slice(1).forEach(({key})=>{
       delete lv.registeredUsers[key];
-      dbSet('registeredUsers/'+key, null);
+      dbSet('registeredUsers/'+key, null);  // null = delete in Firebase REST
       removed++;
     });
   });
@@ -2663,13 +2670,23 @@ function cleanDuplicates(){
   }
 }
 
-// Helper: find the Firebase key for a user by their stored id or phone
+// Helper: find the Firebase key for a user
+// 'did' can be a Firebase key, a phone number, or an id field value
 function findUserKey(did){
-  // First try direct key lookup
+  if(!did) return null;
+  // Direct key match
   if(lv.registeredUsers[did]) return did;
-  // Then find by id field or phone field
-  const entry = Object.entries(lv.registeredUsers||{}).find(([k,u])=>u.id===did||u.phone===did||k===did);
+  // Search by _fbKey, id, or phone
+  const entry=Object.entries(lv.registeredUsers||{}).find(([k,u])=>
+    u._fbKey===did || u.id===did || u.phone===did || k===did
+  );
   return entry ? entry[0] : null;
+}
+
+// Get user by any identifier
+function getUser(did){
+  const key=findUserKey(did);
+  return key ? lv.registeredUsers[key] : null;
 }
 
 function doApprove(did){
@@ -2691,22 +2708,28 @@ function doAccess(did){
 
 function doBlock(did){
   const key=findUserKey(did);
-  if(!key)return;
+  if(!key){alert('Employee not found. Try Refresh List first.');return;}
   const u=lv.registeredUsers[key];
   if(!u)return;
   u.blocked=!u.blocked;
   if(u.blocked){u.prevRole=u.role||'operator';u.role='blocked';}
   else{u.role=u.prevRole||'operator';u.blocked=false;}
-  syncAll();buildEmployeeList();
+  // Save just this user's record
+  dbSet('registeredUsers/'+key, u);
+  buildEmployeeList();
 }
 
 function doRemove(did){
   const key=findUserKey(did);
-  if(!key){alert('Employee not found.');return;}
-  if(!confirm('Remove this employee? They will need to re-register.'))return;
+  if(!key){alert('Employee not found. Try clicking Refresh List first.');return;}
+  const u=lv.registeredUsers[key];
+  if(!confirm('Remove '+( u?u.name:'this employee')+'? They will need to re-register.'))return;
   delete lv.registeredUsers[key];
-  dbSet('registeredUsers/'+key, null);
-  syncAll();buildEmployeeList();
+  // Delete directly from Firebase using REST DELETE method
+  fetch('https://fwps-monitor-e033e-default-rtdb.asia-southeast1.firebasedatabase.app/fwps/registeredUsers/'+key+'.json',{method:'DELETE'});
+  buildEmployeeList();
+  // Also sync remaining data
+  dbSet('registeredUsers', lv.registeredUsers);
 }
 
 function closeAccessDenied(){const el=document.getElementById('access-denied-overlay');if(el)el.style.display='none';}
