@@ -2790,7 +2790,16 @@ function doApprove(did){
 
 function doAccess(did){
   const key=findUserKey(did);
-  if(!key){alert('Employee not found. Please wait a moment and try again.');return;}
+  if(!key){
+    // Refresh from Firebase then try again
+    dbGet('registeredUsers').then(data=>{
+      if(data){Object.entries(data).forEach(([k,u])=>{u._fbKey=k;});lv.registeredUsers=data;}
+      const k2=findUserKey(did);
+      if(k2)openPermModal(k2);
+      else alert('Employee not found. Please click Refresh List and try again.');
+    });
+    return;
+  }
   openPermModal(key);
 }
 
@@ -2830,8 +2839,7 @@ function closeAccessDenied(){const el=document.getElementById('access-denied-ove
 function openPermModal(did){
   const key=findUserKey(did); const u=key?lv.registeredUsers[key]:null;
   if(!u){alert('Employee record not found. Please refresh and try again.');return;}
-  permModalDevId=key||did;
-  permModalDevId=did;
+  permModalDevId=key;  // Always use the Firebase key
 
   // Fill employee info
   const nameEl=document.getElementById('perm-emp-name');
@@ -2894,7 +2902,11 @@ function applyRoleDefaults(role){
 }
 
 function savePermissions(){
-  const u=lv.registeredUsers[permModalDevId];if(!u){alert('Could not save - user not found');return;}
+  // Re-resolve key in case it changed
+  const resolvedKey=findUserKey(permModalDevId)||permModalDevId;
+  const u=lv.registeredUsers[resolvedKey];
+  if(!u){alert('Could not save — employee not found. Please close and try again.');return;}
+  permModalDevId=resolvedKey; // ensure we use the correct key
   const sel=document.getElementById('perm-level-sel');
   const role=sel?sel.value:'operator';
   u.role=role;u.blocked=role==='blocked';
