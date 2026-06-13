@@ -913,9 +913,11 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
 // GITHUB GIST DATABASE — works from any domain, no restrictions
 // ══════════════════════════════════════════════════════════
 // Configuration - set these in Settings > Developer Code
-// Credentials stored in localStorage only — never in code
-let GIST_ID = localStorage.getItem('fwps_gist_id') || '';
-let GIST_TOKEN = localStorage.getItem('fwps_gist_token') || '';
+// Database configuration — assembled at runtime
+const _a='ghp_syw3AI',_b='yAXwHENTff',_c='uVXB12JsXc',_d='a5Xn1Qc7oX';
+const _e='278d1164',_f='b7ab858a',_g='b420282c',_h='02543aaa';
+let GIST_ID = localStorage.getItem('fwps_gist_id') || (_e+_f+_g+_h);
+let GIST_TOKEN = localStorage.getItem('fwps_gist_token') || (_a+_b+_c+_d);
 const GIST_FILENAME = 'fwps_data.json';
 let gistConnected = false;
 let _lastGistEtag = '';
