@@ -1,0 +1,3489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>FWPS Monitor — POL Khaur</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FWPS">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f172a;--bg2:#1e293b;--bg3:#334155;--bg4:#475569;
+  --bor:#334155;--bor2:rgba(148,163,184,.15);
+  --tx:#f1f5f9;--tx2:#94a3b8;--tx3:#64748b;
+  --blue:#3b82f6;--cyan:#06b6d4;--green:#22c55e;
+  --amber:#f59e0b;--red:#ef4444;--purple:#a855f7;--teal:#14b8a6;
+  --fh:'Inter',sans-serif;--fm:'JetBrains Mono',monospace;
+  --r:12px;--r2:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh);overflow-x:hidden;}
+
+/* ── HEADER ── */
+.hdr{background:var(--bg2);border-bottom:1px solid var(--bor);padding:10px 14px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;}
+.hdr-logo{display:flex;align-items:center;gap:10px;}
+.hdr-logo img{width:36px;height:36px;border-radius:50%;object-fit:cover;}
+.hdr-title{font-size:15px;font-weight:700;color:var(--cyan);}
+.hdr-sub{font-size:10px;color:var(--tx3);}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.sync-badge{font-family:var(--fm);font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid;}
+.sync-ok{background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);}
+.sync-err{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3);}
+.sync-pending{background:rgba(245,158,11,.1);color:var(--amber);border-color:rgba(245,158,11,.3);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--bor);}
+.tab{flex:1;padding:11px 6px;text-align:center;font-size:12px;font-weight:600;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab svg{display:block;margin:0 auto 3px;width:16px;height:16px;}
+
+/* ── PAGE ── */
+.page{display:none;padding:12px;padding-bottom:80px;}
+.page.active{display:block;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--bor);border-radius:var(--r);padding:12px;margin-bottom:10px;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.card-title{font-size:13px;font-weight:600;color:var(--tx);}
+.section-label{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx3);margin-bottom:8px;padding-left:2px;}
+
+/* ── POND LEVEL ── */
+.pond-display{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.pond-level-big{font-family:var(--fm);font-size:36px;font-weight:600;color:var(--cyan);line-height:1;}
+.pond-label{font-size:10px;color:var(--tx3);margin-top:4px;}
+.pond-bar-wrap{flex:1;}
+.pond-bar-bg{background:var(--bg3);border-radius:6px;height:12px;overflow:hidden;}
+.pond-bar-fill{height:100%;border-radius:6px;transition:width .8s ease;background:linear-gradient(90deg,var(--blue),var(--cyan));}
+.pond-bar-fill.low{background:linear-gradient(90deg,var(--amber),#fbbf24);}
+.pond-bar-fill.critical{background:linear-gradient(90deg,var(--red),#f87171);}
+.pond-pct{font-family:var(--fm);font-size:11px;color:var(--tx2);margin-top:4px;}
+
+/* ── PUMP GRID ── */
+.pump-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.pump-card{background:var(--bg3);border-radius:var(--r2);padding:10px;border:1px solid var(--bor2);position:relative;}
+.pump-card.running{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06);}
+.pump-card.fault{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.06);}
+.pump-card.off{border-color:var(--bor2);}
+.pump-name{font-size:11px;font-weight:600;color:var(--tx);margin-bottom:5px;line-height:1.3;}
+.pump-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block;margin-right:5px;}
+.pump-status-dot.running{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite;}
+.pump-status-dot.fault{background:var(--amber);}
+.pump-status-dot.off{background:var(--tx3);}
+.pump-status-txt{font-size:10px;font-family:var(--fm);}
+.pump-runtime{font-size:9px;color:var(--tx3);margin-top:3px;font-family:var(--fm);}
+.pump-group-label{font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;padding:4px 0;border-bottom:1px solid var(--bor);}
+
+/* ── OPERATORS ── */
+.op-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.op-card{background:var(--bg3);border-radius:var(--r2);padding:9px;border:1px solid var(--bor2);}
+.op-station{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--tx3);text-transform:uppercase;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--bor);}
+.op-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.op-shift{font-size:9px;color:var(--tx3);min-width:14px;}
+.op-name{font-size:11px;font-weight:500;color:var(--tx);}
+.op-empty{font-size:10px;color:var(--tx3);font-style:italic;}
+
+/* ── SCHEDULE ZONES ── */
+.zone-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.zone-card{background:var(--bg3);border-radius:var(--r2);padding:10px;border:1px solid var(--bor2);}
+.zone-card.active-zone{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06);}
+.zone-card.break-zone{border-color:var(--bor2);opacity:.7;}
+.zone-name{font-size:11px;font-weight:600;margin-bottom:4px;}
+.zone-time{font-family:var(--fm);font-size:10px;color:var(--tx2);margin-bottom:5px;}
+.zone-badge{display:inline-block;font-size:9px;padding:2px 7px;border-radius:10px;font-family:var(--fm);border:1px solid;}
+.badge-active{background:rgba(34,197,94,.12);color:var(--green);border-color:rgba(34,197,94,.3);}
+.badge-break{background:rgba(148,163,184,.1);color:var(--tx3);border-color:var(--bor);}
+.badge-done{background:rgba(59,130,246,.12);color:var(--blue);border-color:rgba(59,130,246,.3);}
+.badge-upcoming{background:rgba(245,158,11,.12);color:var(--amber);border-color:rgba(245,158,11,.3);}
+.badge-stopped{background:rgba(239,68,68,.12);color:var(--red);border-color:rgba(239,68,68,.3);}
+.progress-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:6px;}
+.progress-fill{height:100%;border-radius:3px;transition:width .6s;background:linear-gradient(90deg,var(--teal),var(--green));}
+.zone-rem{font-size:9px;color:var(--tx3);margin-top:3px;}
+
+/* ── LEAKAGE ── */
+.leak-card{background:var(--bg3);border-radius:var(--r2);padding:10px;border:1px solid var(--bor2);}
+.leak-card.critical-leak{border-color:rgba(239,68,68,.5);}
+.leak-card.major-leak{border-color:rgba(245,158,11,.4);}
+.leak-pole{font-family:var(--fm);font-size:13px;font-weight:600;color:var(--tx);}
+.leak-sev{font-size:10px;padding:2px 7px;border-radius:10px;font-family:var(--fm);border:1px solid;display:inline-block;}
+.sev-critical{background:rgba(239,68,68,.12);color:var(--red);border-color:rgba(239,68,68,.3);}
+.sev-major{background:rgba(245,158,11,.12);color:var(--amber);border-color:rgba(245,158,11,.3);}
+.sev-minor{background:rgba(148,163,184,.1);color:var(--tx2);border-color:var(--bor);}
+
+/* ── ALERTS ── */
+.alert{border-radius:var(--r2);padding:10px 12px;margin-bottom:10px;display:none;}
+.alert.show{display:flex;align-items:flex-start;gap:8px;}
+.alert.red{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);}
+.alert.amber{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);}
+.alert-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.alert-txt{font-size:11px;line-height:1.6;}
+.alert-title{font-weight:600;display:block;margin-bottom:2px;}
+
+/* ── INPUTS ── */
+.ig{margin-bottom:8px;}
+.ig label{display:block;font-size:10px;color:var(--tx3);margin-bottom:3px;font-weight:500;letter-spacing:.3px;}
+.ig input,.ig select,.ig textarea{width:100%;background:var(--bg3);border:1px solid var(--bor);border-radius:var(--r2);padding:8px 10px;color:var(--tx);font-family:var(--fh);font-size:13px;outline:none;transition:border-color .2s;}
+.ig select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-color:var(--bg3);padding-right:28px;}
+.ig select option{background:#1e293b;}
+.ig input:focus,.ig select:focus,.ig textarea:focus{border-color:var(--blue);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+
+/* ── BUTTONS ── */
+.btn{display:block;width:100%;padding:11px;border:none;border-radius:var(--r2);background:var(--blue);color:#fff;font-family:var(--fh);font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;text-align:center;}
+.btn:active{opacity:.85;}
+.btn.green{background:var(--green);}
+.btn.amber{background:var(--amber);}
+.btn.red{background:var(--red);}
+.btn.ghost{background:transparent;border:1px solid var(--bor);color:var(--tx2);}
+.btn.purple{background:var(--purple);}
+.btn.sm{padding:7px 14px;font-size:11px;width:auto;display:inline-block;}
+
+/* ── TOGGLE ── */
+.tog-wrap{display:flex;align-items:center;gap:8px;}
+.tog{position:relative;width:44px;height:24px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-sl{position:absolute;inset:0;background:var(--bg3);border-radius:12px;cursor:pointer;transition:.3s;border:1px solid var(--bor);}
+.tog-sl::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:var(--tx3);border-radius:50%;transition:.3s;}
+.tog input:checked+.tog-sl{background:rgba(34,197,94,.2);border-color:var(--green);}
+.tog input:checked+.tog-sl::before{transform:translateX(20px);background:var(--green);box-shadow:0 0 8px rgba(34,197,94,.5);}
+
+/* ── RECORDS TABLE ── */
+.tbl-wrap{overflow-x:auto;}
+.tbl{width:100%;border-collapse:collapse;font-size:11px;}
+.tbl th{background:var(--bg3);color:var(--tx3);padding:7px 8px;text-align:left;border-bottom:1px solid var(--bor);font-weight:600;white-space:nowrap;}
+.tbl td{padding:7px 8px;border-bottom:1px solid rgba(51,65,85,.5);vertical-align:top;}
+.tbl tr:last-child td{border-bottom:none;}
+.del-btn{padding:2px 7px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.1);color:var(--red);border-radius:4px;cursor:pointer;font-size:10px;}
+.edit-btn{padding:2px 7px;border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.1);color:var(--blue);border-radius:4px;cursor:pointer;font-size:10px;margin-right:3px;}
+
+/* ── FILTER ROW ── */
+.filter-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;scrollbar-width:none;}
+.filter-row::-webkit-scrollbar{display:none;}
+.filter-btn{flex-shrink:0;padding:4px 12px;border-radius:20px;border:1px solid var(--bor);background:var(--bg2);color:var(--tx3);font-size:10px;font-family:var(--fm);cursor:pointer;}
+.filter-btn.active{background:rgba(6,182,212,.15);color:var(--cyan);border-color:rgba(6,182,212,.4);}
+
+/* ── SETTINGS SECTIONS ── */
+.settings-section{background:var(--bg2);border:1px solid var(--bor);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+.settings-hdr{padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--bor);display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.settings-hdr-title{font-size:12px;font-weight:600;color:var(--tx);}
+.settings-body{padding:12px;}
+
+/* ── MODAL ── */
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
+.modal-ov.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--bor);border-radius:var(--r);padding:18px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:700;color:var(--cyan);margin-bottom:14px;}
+.modal-btns{display:flex;gap:8px;margin-top:12px;}
+.modal-btn{flex:1;padding:10px;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;}
+.mbc{background:var(--blue);color:#fff;}
+.mbx{background:var(--bg3);color:var(--tx2);border:1px solid var(--bor);}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+.login-logo{width:90px;height:90px;border-radius:50%;object-fit:cover;margin-bottom:14px;}
+.login-title{font-size:22px;font-weight:700;color:var(--cyan);margin-bottom:4px;}
+.login-sub{font-size:11px;color:var(--tx3);margin-bottom:4px;letter-spacing:.5px;}
+.login-card{background:var(--bg2);border:1px solid var(--bor);border-radius:var(--r);padding:20px;width:100%;max-width:340px;}
+#login-err{color:var(--red);font-size:11px;text-align:center;min-height:16px;margin-bottom:6px;}
+
+/* ── EMPLOYEE MANAGEMENT ── */
+.emp-card{background:var(--bg3);border-radius:var(--r2);padding:11px;margin-bottom:8px;border:1px solid var(--bor2);}
+.emp-card.blocked{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04);opacity:.75;}
+.emp-name{font-size:13px;font-weight:600;color:var(--tx);margin-bottom:2px;}
+.emp-phone{font-size:10px;color:var(--tx3);margin-bottom:6px;font-family:var(--fm);}
+.emp-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.perm-badge{font-size:10px;padding:2px 9px;border-radius:10px;border:1px solid;font-family:var(--fm);cursor:pointer;transition:all .15s;}
+.perm-view{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3);}
+.perm-operator{background:rgba(245,158,11,.1);color:var(--amber);border-color:rgba(245,158,11,.3);}
+.perm-supervisor{background:rgba(59,130,246,.1);color:var(--blue);border-color:rgba(59,130,246,.3);}
+.perm-admin{background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);}
+.perm-blocked{background:rgba(100,116,139,.1);color:var(--tx3);border-color:var(--bor);}
+.emp-actions{display:flex;gap:6px;margin-top:8px;}
+.access-denied{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;}
+.access-denied-icon{font-size:60px;margin-bottom:14px;}
+
+/* ── MISC ── */
+.divider{height:1px;background:var(--bor);margin:10px 0;}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:3px 9px;border-radius:20px;background:var(--bg3);color:var(--tx2);border:1px solid var(--bor);margin:2px;}
+.empty-state{text-align:center;padding:24px;color:var(--tx3);font-size:12px;}
+.time-display{font-family:var(--fm);font-size:11px;color:var(--tx3);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <img src="./icon-192.png" class="login-logo" onerror="this.style.display='none'">
+  <div class="login-title">FWPS Monitor</div>
+  <div style="font-size:11px;color:var(--tx3);margin-bottom:2px;letter-spacing:.5px;">POL KHAUR — WATER DISTRIBUTION</div>
+  <div style="font-size:10px;color:var(--tx3);margin-bottom:6px;">Developed by: <span style="color:var(--blue);font-weight:600;">Rehan Javed (SFE-Khaur)</span></div>
+  <div style="font-family:var(--fm);font-size:12px;color:var(--cyan);margin-bottom:20px;" id="login-clock">--:-- · ---</div>
+  <div class="login-card">
+
+    <!-- STEP 1: Phone number -->
+    <div id="auth-step1">
+      <div style="font-size:13px;font-weight:600;color:var(--cyan);text-align:center;margin-bottom:4px;">Welcome</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center;margin-bottom:16px;">Enter your WhatsApp number to continue</div>
+      <div class="ig">
+        <label>WHATSAPP NUMBER (without +92)</label>
+        <div style="display:flex;gap:6px;">
+          <div style="background:var(--bg3);border:1px solid var(--bor);border-radius:8px;padding:9px 10px;color:var(--tx3);font-family:var(--fm);font-size:13px;white-space:nowrap;">+92</div>
+          <input type="tel" id="auth-phone" placeholder="3001234567" maxlength="10" style="flex:1;font-size:14px;" onkeydown="if(event.key==='Enter')checkPhone()">
+        </div>
+      </div>
+      <div id="step1-err" style="color:var(--red);font-size:11px;text-align:center;min-height:15px;margin-bottom:6px;"></div>
+      <button class="btn" onclick="checkPhone()" style="background:var(--cyan);color:#0f172a;font-weight:700;">CONTINUE →</button>
+      <div style="text-align:center;margin-top:10px;">
+        <span onclick="showAdminLogin()" style="font-size:10px;color:var(--tx3);cursor:pointer;text-decoration:underline;">Admin login</span>
+      </div>
+    </div>
+
+    <!-- STEP 2a: New user -->
+    <div id="auth-step2-register" style="display:none;">
+      <div style="font-size:13px;font-weight:600;color:var(--green);text-align:center;margin-bottom:4px;">New User Registration</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center;margin-bottom:14px;">Create your account</div>
+      <div style="background:var(--bg3);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;">&#128241;</span>
+        <span style="font-family:var(--fm);font-size:12px;color:var(--cyan);" id="reg-phone-display">+92—</span>
+        <button onclick="backToStep1()" style="margin-left:auto;background:transparent;border:none;color:var(--tx3);font-size:10px;cursor:pointer;text-decoration:underline;">Change</button>
+      </div>
+      <div class="ig"><label>FULL NAME</label>
+        <input type="text" id="reg-name" placeholder="e.g. Muhammad Yousuf">
+      </div>
+      <div class="ig"><label>CREATE 4-DIGIT PIN</label>
+        <input type="password" id="reg-pin1" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;">
+      </div>
+      <div class="ig"><label>CONFIRM PIN</label>
+        <input type="password" id="reg-pin2" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;" onkeydown="if(event.key==='Enter')completeRegistration()">
+      </div>
+      <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);border-radius:8px;padding:9px;margin-bottom:10px;font-size:11px;color:var(--amber);line-height:1.6;">
+        ⚠️ <b>Remember your 4-digit PIN.</b> You will use it every time you login. After registration, you can only view Dashboard until admin grants access.
+      </div>
+      <div id="reg-err" style="color:var(--red);font-size:11px;text-align:center;min-height:15px;margin-bottom:6px;"></div>
+      <button class="btn green" onclick="completeRegistration()">✅ REGISTER</button>
+    </div>
+
+    <!-- STEP 2b: Returning user -->
+    <div id="auth-step2-login" style="display:none;">
+      <div style="font-size:13px;font-weight:600;color:var(--cyan);text-align:center;margin-bottom:4px;" id="returning-greeting">Welcome back!</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center;margin-bottom:14px;">Enter your 4-digit PIN</div>
+      <div style="background:var(--bg3);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;">👤</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;" id="login-name-display">—</div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--tx3);" id="login-phone-display">—</div>
+        </div>
+        <button onclick="backToStep1()" style="margin-left:auto;background:transparent;border:none;color:var(--tx3);font-size:10px;cursor:pointer;text-decoration:underline;">Not you?</button>
+      </div>
+      <div class="ig"><label>4-DIGIT PIN</label>
+        <input type="password" id="login-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-err" style="color:var(--red);font-size:11px;text-align:center;min-height:15px;margin-bottom:6px;"></div>
+      <button class="btn" onclick="doLogin()">🔐 LOGIN</button>
+      <div style="text-align:center;margin-top:12px;">
+        <span onclick="showForgotPin()" style="font-size:11px;color:var(--tx3);cursor:pointer;text-decoration:underline;">Forgot PIN?</span>
+      </div>
+    </div>
+
+    <!-- FORGOT PIN PANEL -->
+    <div id="forgot-pin-panel" style="display:none;">
+      <div style="font-size:13px;font-weight:600;color:var(--amber);text-align:center;margin-bottom:4px;">Reset PIN</div>
+      <div style="font-size:11px;color:var(--tx3);text-align:center;margin-bottom:16px;line-height:1.6;">
+        A reset code will be generated.<br>Ask your Admin to share it with you via WhatsApp.
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;">👤</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;" id="forgot-name-display">—</div>
+          <div style="font-family:var(--fm);font-size:10px;color:var(--tx3);" id="forgot-phone-display">—</div>
+        </div>
+      </div>
+      <!-- Request state -->
+      <div id="forgot-request-area">
+        <button class="btn amber" onclick="requestPinReset()">📤 REQUEST PIN RESET</button>
+        <div style="font-size:10px;color:var(--tx3);text-align:center;margin-top:8px;line-height:1.6;">
+          This sends a reset request to the Admin. The Admin will generate a one-time code and share it with you via WhatsApp.
+        </div>
+      </div>
+      <!-- Enter code state -->
+      <div id="forgot-code-area" style="display:none;">
+        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-bottom:12px;font-size:11px;color:var(--green);text-align:center;line-height:1.6;">
+          ✅ Reset request sent!<br>Ask your Admin to check Employee Management and share your one-time reset code via WhatsApp.
+        </div>
+        <div class="ig"><label>ENTER RESET CODE (from Admin)</label>
+          <input type="text" id="reset-code-inp" placeholder="Enter 6-digit code" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:4px;" onkeydown="if(event.key==='Enter')verifyResetCode()">
+        </div>
+        <div class="ig"><label>NEW 4-DIGIT PIN</label>
+          <input type="password" id="reset-new-pin1" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:8px;">
+        </div>
+        <div class="ig"><label>CONFIRM NEW PIN</label>
+          <input type="password" id="reset-new-pin2" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:24px;letter-spacing:8px;" onkeydown="if(event.key==='Enter')verifyResetCode()">
+        </div>
+        <div id="reset-err" style="color:var(--red);font-size:11px;text-align:center;min-height:14px;margin-bottom:6px;"></div>
+        <button class="btn green" onclick="verifyResetCode()">✅ RESET PIN</button>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <span onclick="backToLoginPin()" style="font-size:10px;color:var(--tx3);cursor:pointer;text-decoration:underline;">← Back to Login</span>
+      </div>
+    </div>
+
+    <!-- Admin login -->
+    <div id="admin-login-panel" style="display:none;">
+      <div style="font-size:13px;font-weight:600;color:var(--amber);text-align:center;margin-bottom:14px;">Administrator Login</div>
+      <div class="ig"><label>USERNAME</label><input type="text" id="login-user" placeholder="admin" style="text-align:center;"></div>
+      <div class="ig"><label>PASSWORD</label><input type="password" id="login-pass" placeholder="••••••" style="text-align:center;" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+      <div id="admin-login-err" style="color:var(--red);font-size:11px;text-align:center;min-height:15px;margin-bottom:6px;"></div>
+      <button class="btn amber" onclick="doAdminLogin()">🔐 ADMIN LOGIN</button>
+      <div style="text-align:center;margin-top:10px;">
+        <span onclick="backToStep1()" style="font-size:10px;color:var(--tx3);cursor:pointer;text-decoration:underline;">← Back</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CRITICAL ALERT BANNER -->
+<div id="critical-alert" class="alert red" style="display:none;margin:0;border-radius:0;border-left:none;border-right:none;border-top:none;">
+  <span class="alert-icon">🚨</span>
+  <div class="alert-txt"><span class="alert-title" id="critical-alert-title">CRITICAL ALERT</span><span id="critical-alert-msg"></span></div>
+  <button onclick="dismissCritical()" style="margin-left:auto;background:transparent;border:none;color:var(--red);cursor:pointer;font-size:14px;flex-shrink:0;">✕</button>
+</div>
+
+<!-- HEADER -->
+<header class="hdr" id="main-hdr" style="display:none;">
+  <div class="hdr-logo">
+    <img src="./icon-192.png" onerror="this.style.display='none'">
+    <div>
+      <div class="hdr-title">FWPS Monitor</div>
+      <div class="hdr-sub" id="hdr-time">POL Khaur</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-badge sync-pending" id="sync-badge"><span class="live-dot"></span><span id="sync-txt">Connecting</span></div>
+    <!-- User menu -->
+    <div style="position:relative;">
+      <button id="user-menu-btn" onclick="toggleUserMenu()" style="background:var(--bg3);border:1px solid var(--bor);border-radius:20px;padding:4px 10px 4px 6px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <div style="width:24px;height:24px;border-radius:50%;background:rgba(6,182,212,.2);border:1px solid rgba(6,182,212,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--cyan);" id="user-avatar">?</div>
+        <span style="font-size:11px;font-weight:600;color:var(--tx);" id="user-menu-name">User</span>
+        <span style="font-size:9px;color:var(--tx3);">▼</span>
+      </button>
+      <!-- Dropdown -->
+      <div id="user-dropdown" style="display:none;position:absolute;right:0;top:36px;background:var(--bg2);border:1px solid var(--bor);border-radius:10px;min-width:180px;z-index:300;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--bor);">
+          <div style="font-size:12px;font-weight:600;" id="user-dropdown-name">—</div>
+          <div style="font-size:10px;color:var(--tx3);" id="user-dropdown-phone">—</div>
+          <div style="font-size:10px;color:var(--blue);font-weight:500;margin-top:1px;" id="user-dropdown-role">—</div>
+        </div>
+        <button onclick="showChangePinModal();toggleUserMenu();" style="width:100%;padding:10px 14px;background:transparent;border:none;text-align:left;color:var(--tx);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+          🔑 Change PIN
+        </button>
+        <button onclick="logoutUser();" style="width:100%;padding:10px 14px;background:transparent;border:none;text-align:left;color:var(--red);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+          🚪 Logout
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CHANGE PIN MODAL -->
+<div class="modal-ov" id="change-pin-modal">
+  <div class="modal" style="max-width:320px;">
+    <div class="modal-title">🔑 Change PIN</div>
+    <div class="ig"><label>CURRENT PIN</label>
+      <input type="password" id="chg-current-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:22px;letter-spacing:8px;">
+    </div>
+    <div class="ig"><label>NEW 4-DIGIT PIN</label>
+      <input type="password" id="chg-new-pin1" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:22px;letter-spacing:8px;">
+    </div>
+    <div class="ig"><label>CONFIRM NEW PIN</label>
+      <input type="password" id="chg-new-pin2" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:22px;letter-spacing:8px;">
+    </div>
+    <div id="chg-pin-err" style="color:var(--red);font-size:11px;text-align:center;min-height:14px;margin-bottom:6px;"></div>
+    <div class="modal-btns">
+      <button class="modal-btn mbx" onclick="document.getElementById('change-pin-modal').classList.remove('open')">Cancel</button>
+      <button class="modal-btn mbc" onclick="saveNewPin()">Save PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<nav class="tabs" id="main-tabs" style="display:none;">
+  <div class="tab active" onclick="showTab('dash',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </div>
+  <div class="tab" onclick="showTab('records',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Records
+  </div>
+  <div class="tab" onclick="showTab('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </div>
+</nav>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div class="page active" id="tab-dash">
+
+  <!-- ALL PUMPS STOPPED ALERT -->
+  <div id="all-pumps-alert" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:11px 14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;animation:pulse 1s infinite;">🚨</div>
+      <div style="flex:1;">
+        <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:var(--red);">ALL PUMPS STOPPED — ACTIVE SCHEDULE AFFECTED</div>
+        <div style="font-size:11px;color:#fca5a5;margin-top:2px;" id="all-pumps-alert-msg">Water distribution is suspended</div>
+      </div>
+      <button onclick="document.getElementById('all-pumps-alert').style.display='none'" style="background:transparent;border:none;color:var(--red);font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+  </div>
+
+  <!-- 1. POND LEVEL -->
+  <div class="section-label">Fresh Water Pond Level</div>
+  <div class="card" style="margin-bottom:10px;">
+    <div class="pond-display">
+      <div>
+        <div class="pond-level-big" id="dash-pond-level">—</div>
+        <div class="pond-label">Current Level</div>
+      </div>
+      <div class="pond-bar-wrap">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:10px;color:var(--tx3);">FWPS Pond-A</span>
+          <span class="pond-pct" id="dash-pond-pct">—</span>
+        </div>
+        <div class="pond-bar-bg"><div class="pond-bar-fill" id="dash-pond-bar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;">
+          <span style="font-size:10px;color:var(--tx3);">Max: <span id="dash-pond-max">—</span></span>
+          <span style="font-size:10px;color:var(--tx3);" id="dash-pond-updated">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. PUMP STATUS -->
+  <div class="section-label">All Pump Status</div>
+  <div class="card" style="padding-bottom:6px;">
+    <div class="pump-group-label">🟢 Fresh Water Pumps</div>
+    <div class="pump-grid" id="fw-pump-grid"></div>
+    <div class="pump-group-label" style="margin-top:8px;">🔵 Ikhlas Water Pumps</div>
+    <div class="pump-grid" id="iw-pump-grid"></div>
+  </div>
+
+  <!-- 3. OPERATORS ON DUTY -->
+  <div class="section-label">Operators On Duty</div>
+  <div class="card" style="padding-bottom:6px;">
+    <div class="op-grid">
+      <div class="op-card">
+        <div class="op-station" style="color:var(--green);">Fresh Water Station</div>
+        <div id="dash-fw-ops"><div class="op-empty">Not assigned</div></div>
+      </div>
+      <div class="op-card">
+        <div class="op-station" style="color:var(--teal);">Ikhlas Water Station</div>
+        <div id="dash-iw-ops"><div class="op-empty">Not assigned</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. DISTRIBUTION ZONES -->
+  <div class="section-label">Active Distribution Zones</div>
+  <div class="card">
+    <div style="margin-bottom:8px;">
+      <div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:5px;">FWPS SCHEDULE</div>
+      <div id="dash-fwps-zone" style="font-size:12px;color:var(--tx2);">Calculating…</div>
+    </div>
+    <div class="divider"></div>
+    <div style="margin-bottom:4px;margin-top:8px;">
+      <div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:6px;">COMMUNITY DISTRIBUTION</div>
+      <div class="zone-grid">
+        <div class="zone-card" id="kc-zone-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+            <div class="zone-name">Khaur City</div>
+            <div class="zone-badge badge-break" id="kc-zone-badge">—</div>
+          </div>
+          <div id="kc-date-range" style="font-size:10px;color:var(--teal);font-weight:600;margin-bottom:2px;font-family:var(--fm);">—</div>
+          <div class="zone-time" id="kc-zone-time">—</div>
+          <div class="progress-bar"><div class="progress-fill" id="kc-progress" style="width:0%"></div></div>
+          <div class="zone-rem" id="kc-rem"></div>
+          <div id="kc-next-date" style="font-size:9px;color:var(--tx3);margin-top:3px;"></div>
+        </div>
+        <div class="zone-card" id="kkc-zone-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px;">
+            <div class="zone-name">Khaur Company</div>
+            <div class="zone-badge badge-break" id="kkc-zone-badge">—</div>
+          </div>
+          <div id="kkc-date-range" style="font-size:10px;color:var(--teal);font-weight:600;margin-bottom:2px;font-family:var(--fm);">—</div>
+          <div class="zone-time" id="kkc-zone-time">—</div>
+          <div class="progress-bar"><div class="progress-fill" id="kkc-progress" style="width:0%"></div></div>
+          <div class="zone-rem" id="kkc-rem"></div>
+          <div id="kkc-next-date" style="font-size:9px;color:var(--tx3);margin-top:3px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. LAST LEAKAGE -->
+  <div class="section-label">Last Ikhlas Line Leakage</div>
+  <div class="card" id="dash-last-leak">
+    <div class="empty-state">No leakage records</div>
+  </div>
+
+</div>
+
+<!-- ══════════ RECORDS ══════════ -->
+<div class="page" id="tab-records">
+
+  <!-- Month/Year Filter -->
+  <div class="filter-row" id="rec-filter-row"></div>
+
+  <!-- Record Type Selector -->
+  <div class="ig" style="margin-bottom:10px;">
+    <select id="rec-type-sel" onchange="renderActiveRecord()">
+      <option value="pond">💧 Pond Level Records</option>
+      <option value="pump">⚙️ Pump Status Records</option>
+      <option value="operators">👷 Operator Duty Records</option>
+      <option value="schedule">📋 Distribution Schedule Records</option>
+      <option value="leakage">🔧 Ikhlas Line Leakage Records</option>
+    </select>
+  </div>
+
+  <div id="rec-content-area"></div>
+
+  <button class="btn ghost" onclick="exportCurrentRecord()" style="margin-top:4px;">⬇️ Export to Excel</button>
+
+</div>
+
+<!-- ══════════ SETTINGS ══════════ -->
+<div class="page" id="tab-settings">
+
+  <!-- Settings lock -->
+  <div id="settings-lock" style="text-align:center;padding:30px 16px;">
+    <div style="font-size:40px;margin-bottom:12px;">⚙️</div>
+    <div style="font-size:16px;font-weight:700;color:var(--cyan);margin-bottom:6px;">Settings</div>
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:4px;" id="settings-lock-msg">Enter your 4-digit PIN to access your settings</div>
+    <div style="font-size:10px;color:var(--tx3);margin-bottom:18px;" id="settings-lock-sub">Only sections you have permission for will be shown</div>
+    <div style="max-width:260px;margin:0 auto;">
+      <div class="ig"><label id="settings-pwd-label">YOUR 4-DIGIT PIN</label>
+        <input type="password" id="settings-pwd" placeholder="Enter password or PIN" maxlength="30" style="text-align:center;font-size:15px;letter-spacing:2px;" onkeydown="if(event.key==='Enter')unlockSettings()">
+      </div>
+      <div style="color:var(--red);font-size:11px;text-align:center;min-height:14px;margin-bottom:6px;" id="settings-err"></div>
+      <button class="btn" onclick="unlockSettings()">🔓 Open My Settings</button>
+    </div>
+  </div>
+
+  <div id="settings-content" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+      <div id="settings-user-context" style="display:none;font-size:11px;padding:6px 10px;background:var(--bg3);border-radius:8px;"></div>
+      <button class="btn ghost sm" onclick="lockSettings()" style="margin-left:auto;">🔒 Lock</button>
+    </div>
+
+    <!-- 1. POND LEVEL -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-pond')">
+        <span class="settings-hdr-title">💧 Pond Level Update</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-pond-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-pond">
+        <div class="grid2">
+          <div class="ig"><label>CURRENT LEVEL (Feet'Inch")</label><input type="text" id="set-pond-level" placeholder="7'6&quot;"></div>
+          <div class="ig"><label>MAX CAPACITY</label><input type="text" id="set-pond-max" placeholder="10'0&quot;"></div>
+        </div>
+        <div class="ig"><label>REMARKS</label><input type="text" id="set-pond-rem" placeholder="Any remarks..."></div>
+        <button class="btn green" onclick="savePondLevel()">💾 Save Pond Level</button>
+      </div>
+    </div>
+
+    <!-- 2. PUMPS -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-pumps')">
+        <span class="settings-hdr-title">⚙️ Pump Management</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-pumps-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-pumps">
+        <div id="pump-settings-list"></div>
+        <div class="grid2" style="margin-top:8px;">
+          <button class="btn ghost" onclick="addPump('fw')">➕ Add FW Pump</button>
+          <button class="btn ghost" onclick="addPump('iw')">➕ Add IW Pump</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. OPERATORS -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-ops')">
+        <span class="settings-hdr-title">👷 Operator Duties</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-ops-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-ops">
+        <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:8px;">Fresh Water Station</div>
+        <div id="fw-ops-settings"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Ikhlas Water Station</div>
+        <div id="iw-ops-settings"></div>
+        <button class="btn green" onclick="saveOperators()" style="margin-top:8px;">💾 Save Operators</button>
+      </div>
+    </div>
+
+    <!-- 4. SCHEDULE -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-sch')">
+        <span class="settings-hdr-title">📋 Distribution Schedule</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-sch-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-sch">
+        <div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:8px;">FWPS Morning Shift</div>
+        <div id="sch-morning-edit"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--blue);margin:10px 0 8px;">FWPS Evening Shift</div>
+        <div id="sch-evening-edit"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Community — Khaur City</div>
+        <div id="sch-kc-edit"></div>
+        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Community — Khaur Company</div>
+        <div id="sch-kkc-edit"></div>
+        <!-- Rotation Start Date -->
+        <div style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:var(--r2);padding:12px;margin-top:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;letter-spacing:.5px;">📅 ROTATION DATES CONTROL</div>
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:10px;line-height:1.7;">Set the date when <b>Khaur City Day-1</b> begins. System auto-calculates all future dates:<br>
+            <span style="font-family:var(--fm);font-size:10px;color:var(--teal);">KC▸KC▸BREAK▸KKC▸KKC▸BREAK▸repeat</span>
+          </div>
+          <div class="grid2" style="margin-bottom:8px;">
+            <div class="ig" style="margin-bottom:0;">
+              <label>ROTATION START DATE (Khaur City Day-1)</label>
+              <input type="date" id="rotation-start-inp" oninput="previewRotation()">
+            </div>
+            <div>
+              <label style="display:block;font-size:10px;color:var(--tx3);margin-bottom:3px;">TODAY'S ZONE</label>
+              <div id="today-rotation-preview" style="background:var(--bg3);border:1px solid var(--bor);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--tx2);">Set start date to calculate</div>
+            </div>
+          </div>
+          <button onclick="saveRotationStart()" style="width:100%;padding:9px;background:rgba(20,184,166,.2);border:1px solid rgba(20,184,166,.4);color:var(--teal);border-radius:8px;font-family:var(--fh);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;">📅 SAVE ROTATION START DATE</button>
+          <!-- 7-day preview -->
+          <div id="rotation-calendar-preview"></div>
+        </div>
+
+        <div class="alert amber show" style="margin-top:8px;">
+          <span class="alert-icon">⚠️</span>
+          <div class="alert-txt"><span class="alert-title">Auto-Rotation</span>Once start date is set, dates update automatically forever. Change only when you need to reset the cycle.</div>
+        </div>
+        <!-- Auto Pump Control Toggle -->
+        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--r2);padding:12px;margin-top:10px;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="flex:1;margin-right:12px;">
+              <div style="font-size:12px;font-weight:700;color:var(--green);">&#x26A1; Auto Pump Control</div>
+              <div style="font-size:10px;color:var(--tx3);margin-top:2px;line-height:1.6;">FW pumps auto-start at first schedule zone and auto-stop after last zone ends. Repeats daily.</div>
+            </div>
+            <label class="tog" style="flex-shrink:0;">
+              <input type="checkbox" id="auto-control-toggle" onchange="setAutoControl(this.checked)">
+              <span class="tog-sl"></span>
+            </label>
+          </div>
+          <div id="auto-control-status" style="font-size:11px;color:var(--tx3);font-family:var(--fm);">Load settings to see status</div>
+        </div>
+        <button class="btn green" onclick="saveSchedule()" style="margin-top:0;">&#x1F4BE; Save &amp; Sync Schedule</button>
+        <button class="btn ghost" onclick="resetScheduleDelay()" style="margin-top:6px;">↺ Reset Schedule Delays</button>
+      </div>
+    </div>
+
+    <!-- 5. LEAKAGE -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-leak')">
+        <span class="settings-hdr-title">🔧 Ikhlas Line Leakage</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-leak-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-leak">
+        <div class="grid2">
+          <div class="ig"><label>POLE NUMBER</label><input type="text" id="set-leak-pole" placeholder="e.g. Pole #42"></div>
+          <div class="ig"><label>SEVERITY</label>
+            <select id="set-leak-sev"><option>Minor</option><option>Major</option><option>Critical</option></select>
+          </div>
+          <div class="ig"><label>REPORTED DATE</label><input type="date" id="set-leak-date"></div>
+          <div class="ig"><label>RECTIFICATION DATE</label><input type="date" id="set-leak-fix"></div>
+        </div>
+        <div class="ig"><label>LOCATION DESCRIPTION</label><input type="text" id="set-leak-loc" placeholder="Where is the leakage?"></div>
+        <div class="ig"><label>REMARKS</label><input type="text" id="set-leak-rem" placeholder="Additional details..."></div>
+        <button class="btn red" onclick="addLeakage()">🔧 Add Leakage Record</button>
+      </div>
+    </div>
+
+    <!-- 6. EMPLOYEE MANAGEMENT -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-emp')">
+        <span class="settings-hdr-title">👥 Registered Employees Management</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-emp-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-emp" style="display:none;">
+        <div style="font-size:11px;color:var(--tx2);margin-bottom:12px;line-height:1.7;">
+          Manage all registered employees. Block access or set permissions for each person.
+        </div>
+        <!-- Permission Legend -->
+        <div style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:12px;">
+          <div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:6px;letter-spacing:1px;">PERMISSION LEVELS</div>
+          <div style="font-size:11px;color:var(--tx2);line-height:2;">
+            <span style="color:var(--red);">👁 View Only</span> — Can see Dashboard only<br>
+            <span style="color:var(--amber);">📋 Operator</span> — Can view + update pump/operator status<br>
+            <span style="color:var(--blue);">⚙️ Supervisor</span> — Can view, update + access Records<br>
+            <span style="color:var(--green);">🔑 Admin</span> — Full access including Settings
+          </div>
+        </div>
+        <!-- PIN Reset Requests banner (shown when there are pending resets) -->
+        <!-- Admin tools -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+          <button onclick="cleanDuplicates()" style="flex:1;padding:7px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:8px;font-size:11px;cursor:pointer;font-family:var(--fh);font-weight:600;">🧹 Remove Duplicates</button>
+          <button onclick="buildEmployeeList()" style="flex:1;padding:7px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);color:var(--blue);border-radius:8px;font-size:11px;cursor:pointer;font-family:var(--fh);font-weight:600;">🔄 Refresh List</button>
+        </div>
+        <div id="pin-reset-requests" style="display:none;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:6px;">🔑 PIN RESET REQUESTS</div>
+          <div id="pin-reset-list"></div>
+        </div>
+        <div id="emp-list-container">
+          <div class="empty-state">No registered employees yet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. PASSWORDS -->
+    <div class="settings-section">
+      <div class="settings-hdr" onclick="toggleSection('s-pwd')">
+        <span class="settings-hdr-title">🔑 Change Admin Password</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-pwd-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-pwd" style="display:none;">
+        <div class="grid2">
+          <div class="ig"><label>NEW ADMIN PASSWORD</label><input type="password" id="new-pwd1" placeholder="New password"></div>
+          <div class="ig"><label>CONFIRM</label><input type="password" id="new-pwd2" placeholder="Confirm"></div>
+        </div>
+        <button class="btn amber" onclick="changePassword()">🔑 Change Admin Password</button>
+      </div>
+    </div>
+
+    <!-- 8. DEVELOPER CODE EDITOR -->
+    <div class="settings-section" style="border-color:rgba(168,85,247,.3);">
+      <div class="settings-hdr" onclick="toggleSection('s-dev')" style="background:rgba(168,85,247,.08);">
+        <span class="settings-hdr-title" style="color:var(--purple);">🖥️ Developer Code Editor</span>
+        <span style="font-size:10px;color:var(--tx3);" id="s-dev-arrow">▼</span>
+      </div>
+      <div class="settings-body" id="s-dev" style="display:none;">
+
+        <!-- Dev Password Gate -->
+        <!-- GIST SETUP (shown when not configured) -->
+        <div id="gist-setup-area" style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.25);border-radius:var(--r2);padding:14px;margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:700;color:var(--cyan);margin-bottom:8px;">🔗 Database Setup (Required)</div>
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:12px;line-height:1.8;">
+            This app uses <b>GitHub Gist</b> as its database — works from any device with no restrictions.<br>
+            Complete this one-time setup to enable data sync across all devices.
+          </div>
+          <div class="ig"><label>GITHUB PERSONAL ACCESS TOKEN</label>
+            <input type="password" id="gist-token-inp" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+            <div style="font-size:10px;color:var(--tx3);margin-top:3px;">Go to github.com → Settings → Developer settings → Personal access tokens → Generate new token (Classic) → tick <b>gist</b> scope</div>
+          </div>
+          <div class="ig"><label>GIST ID</label>
+            <input type="text" id="gist-id-inp" placeholder="e.g. a1b2c3d4e5f6g7h8i9j0">
+            <div style="font-size:10px;color:var(--tx3);margin-top:3px;">Go to gist.github.com → Create new Gist → name it <b>fwps_data.json</b> → content <b>{}</b> → Create → copy the ID from the URL</div>
+          </div>
+          <div id="gist-setup-err" style="color:var(--red);font-size:11px;min-height:14px;margin-bottom:6px;"></div>
+          <button onclick="saveGistConfig()" style="width:100%;padding:10px;background:rgba(6,182,212,.2);border:1px solid rgba(6,182,212,.4);color:var(--cyan);border-radius:8px;font-family:var(--fh);font-size:12px;font-weight:700;cursor:pointer;">💾 SAVE DATABASE CONFIG</button>
+          <div style="font-size:10px;color:var(--tx3);text-align:center;margin-top:8px;" id="gist-current-config"></div>
+        </div>
+        <div id="dev-lock-area">
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:12px;line-height:1.7;">
+            Access the full source code for future development. Protected by a separate <b style="color:var(--purple);">Developer Password</b> (different from admin password).
+          </div>
+          <div class="ig"><label>DEVELOPER PASSWORD</label>
+            <input type="password" id="dev-pwd-inp" placeholder="••••••" onkeydown="if(event.key==='Enter')unlockDevEditor()">
+          </div>
+          <div style="color:var(--red);font-size:11px;min-height:14px;margin-bottom:6px;" id="dev-pwd-err"></div>
+          <button class="btn purple" onclick="unlockDevEditor()" style="background:var(--purple);">🖥️ Unlock Code Editor</button>
+        </div>
+
+        <!-- Dev Panel (unlocked) -->
+        <div id="dev-panel" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <div style="font-family:var(--fh);font-size:12px;font-weight:700;color:var(--purple);">Source Code Editor</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="downloadCode()" style="padding:6px 12px;border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.1);color:var(--blue);border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">⬇️ Download</button>
+              <button onclick="lockDevEditor()" style="padding:6px 12px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.1);color:var(--red);border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">🔒 Lock</button>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--tx3);margin-bottom:8px;line-height:1.6;">
+            Full HTML/CSS/JS source code. Edit below and click Download to save your changes as a new file. Upload the new file to GitHub to deploy.
+          </div>
+          <textarea id="code-editor" style="width:100%;height:350px;background:#0f172a;border:1px solid rgba(168,85,247,.3);border-radius:8px;padding:10px;color:#e2e8f0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;outline:none;resize:vertical;" spellcheck="false" placeholder="Loading source code..."></textarea>
+
+          <div class="divider" style="margin:14px 0;"></div>
+          <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:10px;">Change Developer Password</div>
+          <div style="font-size:11px;color:var(--tx3);margin-bottom:8px;">Developer password is separate from admin password. Default: <span style="font-family:var(--fm);color:var(--purple);">dev2024</span></div>
+          <div class="grid2" style="margin-bottom:8px;">
+            <div class="ig"><label>NEW DEV PASSWORD</label><input type="password" id="new-dev-pwd1" placeholder="New developer password"></div>
+            <div class="ig"><label>CONFIRM</label><input type="password" id="new-dev-pwd2" placeholder="Confirm"></div>
+          </div>
+          <div style="color:var(--red);font-size:11px;min-height:14px;margin-bottom:6px;" id="chg-dev-err"></div>
+          <button class="btn purple" onclick="changeDevPassword()" style="background:var(--purple);">🔑 Change Developer Password</button>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end settings-content -->
+</div>
+
+<!-- PERMISSION MODAL -->
+<div class="modal-ov" id="perm-modal">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-title">👤 Set Employee Permissions</div>
+    <div id="perm-modal-emp-info" style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;" id="perm-emp-name">—</div>
+      <div style="font-size:11px;color:var(--blue);font-weight:500;" id="perm-emp-desig">—</div>
+      <div style="font-size:11px;color:var(--tx3);" id="perm-emp-phone">—</div>
+    </div>
+    <div class="ig" style="margin-bottom:12px;"><label>ACCESS LEVEL</label>
+      <select id="perm-level-sel">
+        <option value="view">👁 View Only — Dashboard only</option>
+        <option value="operator" selected>📋 Operator — Dashboard + Pump/Operator updates</option>
+        <option value="supervisor">⚙️ Supervisor — Dashboard + Records</option>
+        <option value="admin">🔑 Admin — Full access</option>
+        <option value="blocked">🚫 Blocked — No access</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--tx2);margin-bottom:12px;background:var(--bg3);border-radius:var(--r2);padding:10px;line-height:1.9;">
+      <div id="perm-desc-view" style="display:none;color:var(--red);">Can only view the Dashboard. Cannot make any changes.</div>
+      <div id="perm-desc-operator" style="color:var(--amber);">Can view Dashboard &amp; Settings (using their own PIN). Can update pumps, operators, and pond levels.</div>
+      <div id="perm-desc-supervisor" style="display:none;color:var(--blue);">Can view Dashboard, Records, and Settings (with own PIN). Can update schedule and leakage records too.</div>
+      <div id="perm-desc-admin" style="display:none;color:var(--green);">Full access to all tabs. Can manage employees, change passwords, access code editor. Uses admin password OR PIN.</div>
+      <div id="perm-desc-blocked" style="display:none;color:var(--tx3);">Completely blocked. Person will see Access Denied screen.</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--tx2);margin-bottom:8px;">Custom Tab Access</div>
+      <div style="display:flex;flex-direction:column;gap:6px;" id="perm-custom-tabs">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="perm-tab-dash" checked disabled> 📊 Dashboard <span style="color:var(--tx3);font-size:10px;">(always visible)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="perm-tab-records"> 📁 Records Tab
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="perm-tab-settings"> ⚙️ Settings Tab
+        </label>
+        <div style="font-size:11px;font-weight:600;color:var(--tx2);margin-top:4px;margin-bottom:4px;">Settings Sub-sections</div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-pond"> 💧 Pond Level Update
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-pumps"> ⚙️ Pump Management
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-ops"> 👷 Operator Duties
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-sch"> 📋 Schedule Edit
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-leak"> 🔧 Leakage Records
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;cursor:pointer;padding-left:12px;">
+          <input type="checkbox" id="perm-s-emp"> 👥 Employee Management
+        </label>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn mbx" onclick="closePermModal()">Cancel</button>
+      <button class="modal-btn mbc" onclick="savePermissions()">Save Permissions</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-ov" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title" id="edit-modal-title">Edit Record</div>
+    <div id="edit-modal-body"></div>
+    <div class="modal-btns">
+      <button class="modal-btn mbx" onclick="closeEditModal()">Cancel</button>
+      <button class="modal-btn mbc" onclick="saveEditModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// GITHUB GIST DATABASE — works from any domain, no restrictions
+// ══════════════════════════════════════════════════════════
+// Configuration - set these in Settings > Developer Code
+// Credentials stored in localStorage only — never in code
+let GIST_ID = localStorage.getItem('fwps_gist_id') || '';
+let GIST_TOKEN = localStorage.getItem('fwps_gist_token') || '';
+const GIST_FILENAME = 'fwps_data.json';
+let gistConnected = false;
+let _lastGistEtag = '';
+let _cachedGistData = null;
+
+function isGistConfigured(){
+  return GIST_ID && GIST_TOKEN;
+}
+
+async function dbGet(path){
+  if(!isGistConfigured()) return getLocalPath(path);
+  try{
+    const headers = {
+      'Authorization': 'token ' + GIST_TOKEN,
+      'Accept': 'application/vnd.github.v3+json',
+      'Cache-Control': 'no-cache'
+    };
+    if(_lastGistEtag) headers['If-None-Match'] = _lastGistEtag;
+    const r = await fetch('https://api.github.com/gists/' + GIST_ID, {
+      headers, signal: AbortSignal.timeout(10000)
+    });
+    if(r.status === 304) return getLocalPath(path); // not modified
+    if(!r.ok){ gistConnected=false; return getLocalPath(path); }
+    const etag = r.headers.get('etag');
+    if(etag) _lastGistEtag = etag;
+    const gist = await r.json();
+    const content = gist.files && gist.files[GIST_FILENAME] && gist.files[GIST_FILENAME].content;
+    if(!content) return null;
+    const data = JSON.parse(content);
+    _cachedGistData = data;
+    gistConnected = true;
+    setSyncStatus('ok');
+    // If path is empty return all, otherwise navigate path
+    if(!path || path === '') return data;
+    const parts = path.split('/').filter(Boolean);
+    let cur = data;
+    for(const p of parts){ if(cur==null) return null; cur = cur[p]; }
+    return cur;
+  }catch(e){ gistConnected=false; setSyncStatus('err'); return getLocalPath(path); }
+}
+
+function getLocalPath(path){
+  try{
+    const stored = localStorage.getItem('fwps_lv');
+    if(!stored) return null;
+    const data = JSON.parse(stored);
+    if(!path || path === '') return data;
+    const parts = path.split('/').filter(Boolean);
+    let cur = data;
+    for(const p of parts){ if(cur==null) return null; cur = cur[p]; }
+    return cur;
+  }catch(e){ return null; }
+}
+
+async function dbSet(path, val){
+  // Always save locally first
+  saveToStorage();
+  if(!isGistConfigured()) return true;
+  // For full sync, we write the entire lv object
+  return await pushFullDataToGist();
+}
+
+async function pushFullDataToGist(){
+  if(!isGistConfigured()) return false;
+  try{
+    const fullData = {pond:lv.pond, pumps:lv.pumps, operators:lv.operators,
+      schedule:lv.schedule, leakages:lv.leakages, rec:rec,
+      registeredUsers:lv.registeredUsers, pinResetRequests:lv.pinResetRequests||{}};
+    const body = JSON.stringify({
+      files:{ [GIST_FILENAME]: { content: JSON.stringify(fullData, null, 2) } }
+    });
+    const r = await fetch('https://api.github.com/gists/' + GIST_ID, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': 'token ' + GIST_TOKEN,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      body, signal: AbortSignal.timeout(15000)
+    });
+    if(r.ok){ gistConnected=true; setSyncStatus('ok'); return true; }
+    gistConnected=false; setSyncStatus('err'); return false;
+  }catch(e){ gistConnected=false; setSyncStatus('err'); return false; }
+}
+
+async function dbPush(path, val){
+  await dbSet(path, val);
+  return Date.now().toString();
+}
+
+function dbListen(path, cb, interval=8000){
+  const poll = ()=>dbGet(path).then(v=>{ if(v)cb(v); }).catch(()=>{});
+  poll();
+  return setInterval(poll, interval);
+}
+
+// ══════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════
+const DEFAULT_PWD = 'fwps2024';
+const deviceId = localStorage.getItem('fwps_did')||('d_'+Math.random().toString(36).substr(2,8));
+localStorage.setItem('fwps_did', deviceId);
+
+let settingsUnlocked = false;
+let currentUser = null;
+let filterYear = 'all', filterMonth = 'all';
+let editModalCallback = null;
+
+// Live data (synced from Firebase)
+let lv = {
+  pond: {level:"0'0\"", max:"10'0\"", pct:0, updated:'', remarks:''},
+  pumps: [], // [{id,name,type,on,fault,runtimeMins,startEpoch}]
+  operators: {fw:[], iw:[]}, // [{name,shift}]
+  schedule: {
+    morning:[{area:'Junior Line',start:'05:00',end:'06:00'},{area:'C-Grades',start:'06:00',end:'07:15'},{area:'Hospital & Bangalows',start:'07:15',end:'09:00'},{area:'A-Grade & Raja A Grades',start:'09:00',end:'10:00'}],
+    evening:[{area:'Junior Line',start:'11:00',end:'12:00'},{area:'C-Grades',start:'12:00',end:'13:30'},{area:'Hospital & Bangalows',start:'13:30',end:'15:30'},{area:'A-Grade & Raja A Grades',start:'15:30',end:'16:30'}],
+    kc:[{area:'Khaur City',start:'08:00',end:'13:00'}],
+    kkc:[{area:'Khaur Company',start:'14:00',end:'19:00'}],
+    // Rotation: rotationStart = date when rotation cycle began (Khaur City day 1)
+    // Pattern: Day 0,1 = KC | Day 2 = BREAK | Day 3,4 = KKC | Day 5 = BREAK | repeat (6-day cycle)
+    rotationStart: null,  // YYYY-MM-DD — set by admin, auto-calculates going forward
+    freshDelay:0, freshStopMin:null,
+    // Auto pump control: if true, FW pumps auto start/stop with schedule
+    autoControl:false,
+    // Track if auto was already triggered today to avoid repeat triggers
+    autoLastStart:null,  // 'YYYY-MM-DD HH:MM' of last auto start
+    autoLastStop:null
+  },
+  leakages: {}, // keyed by id
+  registeredUsers: {},
+  pinResetRequests: {},
+};
+
+// Records (persistent history)
+let rec = {
+  pond: {},     // keyed by date
+  pump: {},     // keyed by ts
+  operators: {}, // keyed by date
+  schedule: {}, // keyed by date
+};
+
+// ══════════════════════════════════════════════════════════
+// LOGIN / REGISTRATION
+// ══════════════════════════════════════════════════════════
+function showRegPanel(){
+  document.getElementById('reg-panel').style.display='block';
+  document.getElementById('admin-login-panel').style.display='none';
+}
+function showAdminLogin(){
+  document.getElementById('reg-panel').style.display='none';
+  document.getElementById('admin-login-panel').style.display='block';
+}
+
+// registerUser replaced by completeRegistration
+
+// old doAdminLogin removed - new version below
+
+// ══ DEVELOPER DEFAULTS ══
+const DEFAULT_DEV_PWD = 'dev2024';
+function getDevPwd(){ return localStorage.getItem('fwps_dev_pwd') || DEFAULT_DEV_PWD; }
+
+function unlockDevEditor(){
+  const v = document.getElementById('dev-pwd-inp').value;
+  const errEl = document.getElementById('dev-pwd-err');
+  if(v === getDevPwd()){
+    document.getElementById('dev-lock-area').style.display = 'none';
+    document.getElementById('dev-panel').style.display = 'block';
+    document.getElementById('dev-pwd-inp').value = '';
+    if(errEl) errEl.textContent = '';
+    loadCodeEditor();
+  } else {
+    if(errEl) errEl.textContent = '❌ Incorrect developer password';
+  }
+}
+
+function lockDevEditor(){
+  document.getElementById('dev-lock-area').style.display = 'block';
+  document.getElementById('dev-panel').style.display = 'none';
+}
+
+function loadCodeEditor(){
+  const ed = document.getElementById('code-editor');
+  if(!ed) return;
+  // Get the full page source
+  const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  ed.value = fullHtml;
+}
+
+function downloadCode(){
+  const ed = document.getElementById('code-editor');
+  const code = ed && ed.value ? ed.value : ('<!DOCTYPE html>\n' + document.documentElement.outerHTML);
+  const blob = new Blob([code], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'FWPS_Monitor_' + todayStr() + '.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function changeDevPassword(){
+  const p1 = document.getElementById('new-dev-pwd1').value;
+  const p2 = document.getElementById('new-dev-pwd2').value;
+  const errEl = document.getElementById('chg-dev-err');
+  if(!p1){ if(errEl) errEl.textContent='Enter new password'; return; }
+  if(p1 !== p2){ if(errEl) errEl.textContent='Passwords do not match'; return; }
+  const adminPwd = localStorage.getItem('fwps_pwd') || DEFAULT_PWD;
+  if(p1 === adminPwd){ if(errEl) errEl.textContent='Dev password cannot match admin password'; return; }
+  localStorage.setItem('fwps_dev_pwd', p1);
+  dbSet('config/devPwd', p1);
+  if(errEl) errEl.textContent='';
+  document.getElementById('new-dev-pwd1').value = '';
+  document.getElementById('new-dev-pwd2').value = '';
+  alert('✅ Developer password changed successfully!');
+}
+
+// ══ ALSO: load dev pwd from Firebase on sync ══
+
+// ══ LIVE CLOCK ON LOGIN SCREEN ══
+(function startLoginClock(){
+  const upd=()=>{
+    const n=new Date();
+    // At midnight, reset auto schedule daily counters
+    const today2=todayStr();
+    if(today2!==_lastDate){
+      _lastDate=today2;
+      lv.schedule.autoLastStart=null;
+      lv.schedule.autoLastStop=null;
+      // Reset pump runtimes for new day
+      lv.pumps.forEach(p=>{p.runtimeMins=0;});
+      syncAll();
+    }
+    const t=n.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    const d=n.toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+    const lc=document.getElementById('login-clock');if(lc)lc.textContent=t+' · '+d;
+    const hc=document.getElementById('hdr-time');if(hc)hc.textContent=t+' · '+d;
+  };
+  upd();setInterval(upd,1000);
+})();
+
+// ══ AUTH STATE ══
+// All registered users stored in lv.registeredUsers keyed by phone (e.g. '+923001234567')
+// Each user: {name, phone, pin, role, permissions, ts, deviceIds:[]}
+// PIN stored as plain 4-digit string (visible to admin)
+
+let pendingPhone = ''; // phone number entered in step 1
+
+function backToStep1(){
+  ['auth-step1','auth-step2-register','auth-step2-login','admin-login-panel']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('auth-step1').style.display='block';
+  const ph=document.getElementById('auth-phone');if(ph)ph.value='';
+  pendingPhone='';
+  ['step1-err','reg-err','login-err','admin-login-err'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='';});
+}
+
+function showAdminLogin(){
+  ['auth-step1','auth-step2-register','auth-step2-login']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  document.getElementById('admin-login-panel').style.display='block';
+}
+
+function checkPhone(){
+  const ph=(document.getElementById('auth-phone')||{}).value.trim();
+  const err=document.getElementById('step1-err');
+  if(ph.length<10){if(err)err.textContent='Enter valid 10-digit number.';return;}
+  if(err)err.textContent='Checking…';
+  pendingPhone='+92'+ph;
+
+  // Always fetch from Firebase to get latest users (not cached lv)
+  const btn=document.querySelector('#auth-step1 button');
+  if(btn){btn.textContent='Checking…';btn.disabled=true;}
+
+  dbGet('registeredUsers').then(users=>{
+    if(btn){btn.textContent='CONTINUE →';btn.disabled=false;}
+    if(err)err.textContent='';
+    // Merge into lv
+    if(users)lv.registeredUsers=users;
+
+    const existingUser=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+    if(existingUser){
+      document.getElementById('auth-step1').style.display='none';
+      document.getElementById('auth-step2-login').style.display='block';
+      const nameEl=document.getElementById('login-name-display');
+      const phoneEl=document.getElementById('login-phone-display');
+      const greetEl=document.getElementById('returning-greeting');
+      if(nameEl)nameEl.textContent=existingUser.name||'—';
+      if(phoneEl)phoneEl.textContent=pendingPhone;
+      if(greetEl)greetEl.textContent='Welcome back, '+existingUser.name.split(' ')[0]+'!';
+      const pinEl=document.getElementById('login-pin');if(pinEl){pinEl.value='';setTimeout(()=>pinEl.focus(),200);}
+    } else {
+      document.getElementById('auth-step1').style.display='none';
+      document.getElementById('auth-step2-register').style.display='block';
+      const dispEl=document.getElementById('reg-phone-display');
+      if(dispEl)dispEl.textContent=pendingPhone;
+      const nameEl=document.getElementById('reg-name');if(nameEl){nameEl.value='';setTimeout(()=>nameEl.focus(),200);}
+    }
+  }).catch(()=>{
+    if(btn){btn.textContent='CONTINUE →';btn.disabled=false;}
+    // Offline fallback — check local cache
+    if(err)err.textContent='';
+    const existingUser=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+    if(existingUser){
+      document.getElementById('auth-step1').style.display='none';
+      document.getElementById('auth-step2-login').style.display='block';
+      const nameEl=document.getElementById('login-name-display');if(nameEl)nameEl.textContent=existingUser.name;
+      const pinEl=document.getElementById('login-pin');if(pinEl){pinEl.value='';setTimeout(()=>pinEl.focus(),200);}
+    } else {
+      document.getElementById('auth-step1').style.display='none';
+      document.getElementById('auth-step2-register').style.display='block';
+      const dispEl=document.getElementById('reg-phone-display');if(dispEl)dispEl.textContent=pendingPhone;
+    }
+  });
+}
+
+function completeRegistration(){
+  const name=(document.getElementById('reg-name')||{}).value.trim();
+  const pin1=(document.getElementById('reg-pin1')||{}).value.trim();
+  const pin2=(document.getElementById('reg-pin2')||{}).value.trim();
+  const err=document.getElementById('reg-err');
+  if(!name){if(err)err.textContent='Enter your full name.';return;}
+  if(!/^[0-9]{4}$/.test(pin1)){if(err)err.textContent='PIN must be exactly 4 digits (0-9).';return;}
+  if(pin1!==pin2){if(err)err.textContent='PINs do not match.';return;}
+  if(err)err.textContent='Saving…';
+
+  // Use phone number as the stable unique key — prevents duplicate entries
+  // Key format: phone digits only e.g. "923077791710"
+  const phoneKey = pendingPhone.replace(/[^0-9]/g,'');
+
+  const userData={
+    id: phoneKey,
+    name,
+    phone: pendingPhone,
+    pin: pin1,
+    role: 'pending',
+    permissions: {tabs:['dash'], sections:[]},
+    ts: Date.now(),
+    registeredAt: new Date().toISOString()
+  };
+
+  if(!lv.registeredUsers) lv.registeredUsers={};
+
+  // Double-check: if somehow already exists, just update (no duplicate)
+  const existing=Object.values(lv.registeredUsers).find(u=>u.phone===pendingPhone);
+  const key = existing ? existing.id : phoneKey;
+  userData.id = key;
+
+  lv.registeredUsers[key] = userData;
+  dbSet('registeredUsers/'+key, userData);
+
+  // Save session — keyed by stable phone key, never changes
+  currentUser = userData;
+  localStorage.setItem('fwps_session', JSON.stringify({uid:key, phone:pendingPhone, name, role:'pending'}));
+
+  if(err) err.textContent='';
+  enterApp();
+}
+
+function doLogin(){
+  const pin=(document.getElementById('login-pin')||{}).value.trim();
+  const err=document.getElementById('login-err');
+  if(!pin){if(err)err.textContent='Enter your PIN.';return;}
+
+  // Find user from already-fetched lv.registeredUsers (populated during checkPhone)
+  const user=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+  if(!user){if(err)err.textContent='User not found. Please go back and check your number.';return;}
+
+  if(String(user.pin)!==String(pin)){
+    if(err)err.textContent='Incorrect PIN. Try again.';
+    const pinEl=document.getElementById('login-pin');if(pinEl)pinEl.value='';
+    return;
+  }
+  if(err)err.textContent='';
+  currentUser=user;
+  localStorage.setItem('fwps_session',JSON.stringify({uid:user.id,phone:user.phone,name:user.name,role:user.role||'pending'}));
+  enterApp();
+}
+
+function doAdminLogin(){
+  const u=(document.getElementById('login-user')||{}).value.trim();
+  const p=(document.getElementById('login-pass')||{}).value;
+  const err=document.getElementById('admin-login-err');
+  const pwd=localStorage.getItem('fwps_pwd')||DEFAULT_PWD;
+  if(p===pwd){
+    currentUser={id:'admin',name:'Admin',phone:'admin',role:'admin',permissions:{tabs:['dash','records','settings'],sections:['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev']},ts:Date.now()};
+    localStorage.setItem('fwps_session',JSON.stringify({uid:'admin',phone:'admin',name:'Admin',role:'admin'}));
+    if(err)err.textContent='';
+    enterApp();
+  } else {
+    if(err)err.textContent='Incorrect password.';
+  }
+}
+
+function checkLogin(){
+  const sess=localStorage.getItem('fwps_session');
+  if(!sess){
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('main-hdr').style.display='none';
+    document.getElementById('main-tabs').style.display='none';
+    return;
+  }
+  try{
+    const s=JSON.parse(sess);
+    if(s.uid==='admin'){
+      currentUser={id:'admin',name:'Admin',phone:'admin',role:'admin',
+        permissions:{tabs:['dash','records','settings'],sections:['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev']},ts:Date.now()};
+      enterApp();return;
+    }
+    // Restore from session — app opens immediately
+    currentUser={id:s.uid,name:s.name,phone:s.phone,role:s.role||'pending',
+      permissions:{tabs:s.role==='pending'?['dash']:['dash'],sections:[]}};
+    enterApp();
+    return;
+  }catch(e){}
+  document.getElementById('login-screen').style.display='flex';
+}
+
+function logoutUser(){
+  if(!confirm('Logout from this device?'))return;
+  localStorage.removeItem('fwps_session');
+  currentUser=null;
+  location.reload();
+}
+
+
+function enterApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-hdr').style.display='flex';
+  document.getElementById('main-tabs').style.display='flex';
+  updateUserMenu();
+  initApp();
+  setTimeout(applyPermissions, 2500);
+}
+
+function initApp(){
+  startClock();
+  buildDefaultPumps();
+  buildDefaultOps();
+  loadFromStorage();
+  startFirebaseSync();
+  renderDashboard();
+  buildSettingsForms();
+  buildRecordFilters();
+}
+
+function buildDefaultPumps(){
+  if(lv.pumps.length) return;
+  lv.pumps = [
+    {id:'fw1',name:'Fresh Water Pump-A',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'fw2',name:'Fresh Water Pump-B',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'fw3',name:'Fresh Water Pump-C',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'iw1',name:'Ikhlas Water Pump-A',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+    {id:'iw2',name:'Ikhlas Water Pump-B',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+    {id:'iw3',name:'Ikhlas Water Pump-C',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+  ];
+}
+
+function buildDefaultOps(){
+  if(lv.operators.fw.length) return;
+  lv.operators.fw=[{name:'',shift:'Morning'},{name:'',shift:'Evening'},{name:'',shift:'Night'}];
+  lv.operators.iw=[{name:'',shift:'Morning'},{name:'',shift:'Evening'},{name:'',shift:'Night'}];
+}
+
+// ══════════════════════════════════════════════════════════
+// FIREBASE SYNC
+// ══════════════════════════════════════════════════════════
+function startFirebaseSync(){
+  setSyncStatus('pending');
+  // Fetch all data at once
+  dbGet('').then(data=>{
+    if(data){
+      if(data.pond) lv.pond=data.pond;
+      if(data.pumps&&Array.isArray(data.pumps)) lv.pumps=data.pumps;
+      if(data.operators) lv.operators=data.operators;
+      if(data.schedule) Object.assign(lv.schedule,data.schedule);
+      if(data.leakages) lv.leakages=data.leakages;
+      if(data.registeredUsers){
+      // Inject the Firebase key into each user object so we always have it
+      Object.entries(data.registeredUsers).forEach(([k,u])=>{ u._fbKey=k; });
+      lv.registeredUsers=data.registeredUsers;
+    }
+    if(data.pinResetRequests) lv.pinResetRequests=data.pinResetRequests;
+      if(data.rec) Object.assign(rec,data.rec);
+    if(data.config&&data.config.devPwd) localStorage.setItem('fwps_dev_pwd',data.config.devPwd);
+      setSyncStatus('ok');
+    } else {
+      setSyncStatus('ok'); // Test mode allows empty db
+    }
+    buildDefaultPumps();buildDefaultOps();
+    renderDashboard();buildSettingsForms();
+  }).catch((e)=>{setSyncStatus('err');console.warn('Firebase sync error:',e);});
+
+  // Poll every 8 seconds
+  setInterval(()=>{
+    dbGet('').then(data=>{
+      if(!data)return;
+      if(data.pond) lv.pond=data.pond;
+      if(data.pumps&&Array.isArray(data.pumps)) lv.pumps=data.pumps;
+      if(data.operators) lv.operators=data.operators;
+      if(data.schedule) Object.assign(lv.schedule,data.schedule);
+      if(data.leakages) lv.leakages=data.leakages;
+      if(data.registeredUsers) lv.registeredUsers=data.registeredUsers;
+      if(data.rec) Object.assign(rec,data.rec);
+    if(data.config&&data.config.devPwd) localStorage.setItem('fwps_dev_pwd',data.config.devPwd);
+      setSyncStatus('ok');
+      renderDashboard();
+    }).catch(()=>setSyncStatus('err'));
+  },8000);
+}
+
+function syncAll(){
+  saveToStorage();
+  pushFullDataToGist(); // async, non-blocking
+}
+
+function setSyncStatus(s){
+  const el=document.getElementById('sync-badge');
+  const tx=document.getElementById('sync-txt');
+  if(!el)return;
+  if(s==='auth'){
+    el.className='sync-badge sync-err';
+    tx.textContent='DB Error';
+    showDbSetupBanner();
+    return;
+  }
+  el.className='sync-badge '+(s==='ok'?'sync-ok':s==='err'||s==='auth'?'sync-err':'sync-pending');
+  tx.textContent=s==='ok'?'Live':s==='err'?'Offline':s==='offline'?'Local':'Sync…';
+}
+
+function showDbSetupBanner(){
+  let el=document.getElementById('db-setup-banner');
+  if(el){el.style.display='flex';return;}
+  el=document.createElement('div');
+  el.id='db-setup-banner';
+  el.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#1e293b;border-top:2px solid #f59e0b;padding:12px 16px;z-index:9999;display:flex;align-items:flex-start;gap:10px;';
+  el.innerHTML=`<span style="font-size:18px;flex-shrink:0;">⚠️</span>
+    <div style="flex:1;">
+      <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-bottom:4px;">Database Connection Issue</div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.6;">To fix: In Firebase Console → Authentication → Settings → Authorized Domains → Add: <b style="color:#06b6d4;">sarimrehan003-hash.github.io</b></div>
+      <div style="font-size:11px;color:#64748b;margin-top:4px;">App is working in offline mode — data saved locally only.</div>
+    </div>
+    <button onclick="document.getElementById('db-setup-banner').style.display='none'" style="background:transparent;border:none;color:#64748b;cursor:pointer;font-size:16px;flex-shrink:0;">✕</button>`;
+  document.body.appendChild(el);
+}
+
+// ══════════════════════════════════════════════════════════
+// LOCAL STORAGE
+// ══════════════════════════════════════════════════════════
+function saveToStorage(){
+  try{localStorage.setItem('fwps_lv',JSON.stringify(lv));localStorage.setItem('fwps_rec',JSON.stringify(rec));}catch(e){}
+}
+function loadFromStorage(){
+  try{
+    const l=localStorage.getItem('fwps_lv');if(l){const d=JSON.parse(l);Object.assign(lv,d);}
+    const r=localStorage.getItem('fwps_rec');if(r){const d=JSON.parse(r);Object.assign(rec,d);}
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════════════════════
+function startClock(){
+  const upd=()=>{
+    const n=new Date();
+    // At midnight, reset auto schedule daily counters
+    const today2=todayStr();
+    if(today2!==_lastDate){
+      _lastDate=today2;
+      lv.schedule.autoLastStart=null;
+      lv.schedule.autoLastStop=null;
+      // Reset pump runtimes for new day
+      lv.pumps.forEach(p=>{p.runtimeMins=0;});
+      syncAll();
+    }
+    const t=n.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    const d=n.toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+    const el=document.getElementById('hdr-time');if(el)el.textContent=t+' · '+d;
+    const lc=document.getElementById('login-clock');if(lc)lc.textContent=t+' · '+d;
+    updateScheduleStatus();
+  };
+  upd();setInterval(upd,1000);
+  setInterval(updateRuntimes,30000);
+}
+
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function t2m(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function m2t(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function nowMins(){const n=new Date();return n.getHours()*60+n.getMinutes();}
+
+// ══════════════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════════════
+function showTab(id,el){
+  // Permission check — admin always passes
+  if(id!=='dash' && currentUser && currentUser.role!=='admin' && !canAccessTab(id)){
+    showAccessDenied('You do not have permission to access the '+id+' section.');
+    return;
+  }
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  const pg=document.getElementById('tab-'+id);
+  if(pg)pg.classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='records') renderActiveRecord();
+  if(id==='settings'){
+    buildSettingsForms();
+    // Update lock screen label for current user
+    const isAdmin=currentUser&&currentUser.role==='admin';
+    const msgEl=document.getElementById('settings-lock-msg');
+    const subEl=document.getElementById('settings-lock-sub');
+    const lblEl=document.getElementById('settings-pwd-label');
+    if(isAdmin){
+      if(msgEl)msgEl.textContent='Enter your Admin Password or PIN';
+      if(subEl)subEl.textContent='Full access — all sections visible';
+      if(lblEl)lblEl.textContent='ADMIN PASSWORD OR PIN';
+    } else {
+      const name=currentUser?currentUser.name.split(' ')[0]:'User';
+      if(msgEl)msgEl.textContent='Enter your 4-digit PIN, '+name;
+      if(subEl)subEl.textContent='Only sections you have permission for will be shown';
+      if(lblEl)lblEl.textContent='YOUR 4-DIGIT PIN';
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// DASHBOARD RENDER
+// ══════════════════════════════════════════════════════════
+function renderDashboard(){
+  renderPondDash();
+  renderPumpsDash();
+  renderOpsDash();
+  renderLastLeakDash();
+}
+
+function renderPondDash(){
+  const p=lv.pond;
+  const lvlEl=document.getElementById('dash-pond-level');
+  const pctEl=document.getElementById('dash-pond-pct');
+  const barEl=document.getElementById('dash-pond-bar');
+  const maxEl=document.getElementById('dash-pond-max');
+  const updEl=document.getElementById('dash-pond-updated');
+  if(lvlEl)lvlEl.textContent=p.level||"0'0\"";
+  if(maxEl)maxEl.textContent=p.max||"10'0\"";
+  if(updEl)updEl.textContent=p.updated?'Updated: '+p.updated:'';
+  const pct=p.pct||0;
+  if(pctEl)pctEl.textContent=pct+'%';
+  if(barEl){
+    barEl.style.width=pct+'%';
+    barEl.className='pond-bar-fill'+(pct<30?' critical':pct<60?' low':'');
+  }
+}
+
+function renderPumpsDash(){
+  const fwGrid=document.getElementById('fw-pump-grid');
+  const iwGrid=document.getElementById('iw-pump-grid');
+  if(!fwGrid||!iwGrid)return;
+  const renderGrid=(container,pumps)=>{
+    container.innerHTML=pumps.map(p=>{
+      const rt=getCurRuntime(p);
+      const cls=p.on?'running':p.fault?'fault':'off';
+      const dotCls=p.on?'running':p.fault?'fault':'off';
+      const stTxt=p.on?'Running':p.fault?p.fault:'Stopped';
+      const stColor=p.on?'var(--green)':p.fault?'var(--amber)':'var(--tx3)';
+      return `<div class="pump-card ${cls}">
+        <div class="pump-name">${p.name}</div>
+        <div style="display:flex;align-items:center;">
+          <span class="pump-status-dot ${dotCls}"></span>
+          <span class="pump-status-txt" style="color:${stColor};">${stTxt}</span>
+        </div>
+        <div class="pump-runtime">${Math.floor(rt/60)}h ${rt%60}m today</div>
+      </div>`;
+    }).join('');
+  };
+  renderGrid(fwGrid, lv.pumps.filter(p=>p.type==='fw'));
+  renderGrid(iwGrid, lv.pumps.filter(p=>p.type==='iw'));
+
+  // Also update exec summary in pump settings
+  const sumEl=document.getElementById('dash-pump-summary');
+  if(sumEl){/* handled by settings */}
+}
+
+function renderOpsDash(){
+  const fwEl=document.getElementById('dash-fw-ops');
+  const iwEl=document.getElementById('dash-iw-ops');
+  const renderOps=(el,ops)=>{
+    if(!el)return;
+    const assigned=ops.filter(o=>o.name);
+    if(!assigned.length){el.innerHTML='<div class="op-empty">Not assigned</div>';return;}
+    el.innerHTML=assigned.map(o=>`
+      <div class="op-row">
+        <span class="op-shift">${o.shift==='Morning'?'☀️':o.shift==='Evening'?'🌆':'🌙'}</span>
+        <span class="op-name">${o.name}</span>
+        <span style="font-size:9px;color:var(--tx3);margin-left:auto;">${o.shift}</span>
+      </div>`).join('');
+  };
+  renderOps(fwEl,lv.operators.fw||[]);
+  renderOps(iwEl,lv.operators.iw||[]);
+}
+
+function renderLastLeakDash(){
+  const el=document.getElementById('dash-last-leak');if(!el)return;
+  const leaks=Object.values(lv.leakages||{});
+  if(!leaks.length){el.innerHTML='<div class="empty-state">No leakage records</div>';return;}
+  const last=leaks.sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+  const openCount=leaks.filter(l=>!l.fixedDate).length;
+  const sevCls=last.severity==='Critical'?'sev-critical':last.severity==='Major'?'sev-major':'sev-minor';
+  const cardCls=last.severity==='Critical'?'critical-leak':last.severity==='Major'?'major-leak':'';
+  el.innerHTML=`<div class="leak-card ${cardCls}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+      <span class="leak-pole">📍 ${last.pole||'—'}</span>
+      <span class="leak-sev ${sevCls}">${last.severity||'—'}</span>
+    </div>
+    <div style="font-size:11px;color:var(--tx2);margin-bottom:3px;">${last.location||'—'}</div>
+    <div style="font-size:10px;color:var(--tx3);">Reported: ${last.reportDate||'—'} &nbsp;·&nbsp; Fixed: ${last.fixedDate||'Pending'}</div>
+    ${openCount>0?`<div style="font-size:10px;color:var(--red);margin-top:5px;">⚠️ ${openCount} open leakage${openCount>1?'s':''}</div>`:''}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// SCHEDULE STATUS
+// ══════════════════════════════════════════════════════════
+function updateScheduleStatus(){
+  const now=nowMins();
+  const delay=lv.schedule.freshDelay||0;
+  const stopMin=lv.schedule.freshStopMin;
+
+  // FWPS zones
+  const allZones=[...lv.schedule.morning,...lv.schedule.evening].map((s,i)=>{
+    const oS=t2m(s.start),oE=t2m(s.end);
+    const after=stopMin!==null&&stopMin!==undefined&&oS>=stopMin;
+    return {...s,eS:after?oS+delay:oS,eE:after?oE+delay:oE};
+  });
+  const activeZone=allZones.find(z=>now>=z.eS&&now<z.eE);
+  const nextZone=allZones.find(z=>now<z.eS);
+  const fwEl=document.getElementById('dash-fwps-zone');
+  if(fwEl){
+    if(activeZone){
+      const pct=Math.round(((now-activeZone.eS)/(activeZone.eE-activeZone.eS))*100);
+      const rem=activeZone.eE-now;
+      fwEl.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span class="zone-badge badge-active">ACTIVE</span>
+        <span style="font-size:12px;font-weight:600;">${activeZone.area}</span>
+      </div>
+      <div class="zone-time">${m2t(activeZone.eS)}–${m2t(activeZone.eE)} &nbsp;·&nbsp; ⏳ ${Math.floor(rem/60)}h ${rem%60}m remaining</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      ${delay>0?`<div style="font-size:10px;color:var(--amber);margin-top:3px;">⏸ Delayed by ${delay}m</div>`:''}`;
+    } else if(nextZone){
+      const d=nextZone.eS-now;
+      fwEl.innerHTML=`<span class="zone-badge badge-upcoming">UPCOMING</span> <span style="font-size:12px;font-weight:500;">${nextZone.area}</span> <span style="font-size:11px;color:var(--tx3);">in ${Math.floor(d/60)}h ${d%60}m</span>`;
+    } else {
+      fwEl.innerHTML='<span class="zone-badge badge-done">DONE</span> <span style="font-size:11px;color:var(--tx3);">All shifts complete today</span>';
+    }
+  }
+
+  // Community zones
+  const ikhlasAnyOn=lv.pumps.filter(p=>p.isIkhlas).some(p=>p.on);
+  updateCommZone('kc', lv.schedule.kc||[], now, ikhlasAnyOn);
+  updateCommZone('kkc', lv.schedule.kkc||[], now, ikhlasAnyOn);
+
+  // ── Check all pumps stopped during active schedule ──
+  checkAllPumpsAlertDash();
+}
+
+function checkAllPumpsAlertDash(){
+  const alertEl=document.getElementById('all-pumps-alert');
+  const msgEl=document.getElementById('all-pumps-alert-msg');
+  if(!alertEl) return;
+
+  const now=nowMins();
+  const anyPumpOn=lv.pumps.some(p=>p.on);
+  if(anyPumpOn){alertEl.style.display='none';return;}
+
+  // Are we within any active distribution window?
+  const allZones=[...(lv.schedule.morning||[]),...(lv.schedule.evening||[])];
+  const delay=lv.schedule.freshDelay||0;
+  const stopMin=lv.schedule.freshStopMin;
+  const inFWSchedule=allZones.some(s=>{
+    const oS=t2m(s.start),oE=t2m(s.end);
+    const after=stopMin!==null&&stopMin!==undefined&&oS>=stopMin;
+    const eS=after?oS+delay:oS, eE=after?oE+delay:oE;
+    return now>=eS&&now<eE;
+  });
+
+  // Check community schedule (if today is KC or KKC turn)
+  const todayInfo=lv.schedule.rotationStart?getRotationInfo(todayStr()):null;
+  let inCommSchedule=false;
+  if(todayInfo&&todayInfo.zone==='kc'){
+    inCommSchedule=(lv.schedule.kc||[]).some(s=>now>=t2m(s.start)&&now<t2m(s.end));
+  } else if(todayInfo&&todayInfo.zone==='kkc'){
+    inCommSchedule=(lv.schedule.kkc||[]).some(s=>now>=t2m(s.start)&&now<t2m(s.end));
+  } else if(!lv.schedule.rotationStart){
+    // No rotation set — check both
+    inCommSchedule=(lv.schedule.kc||[]).some(s=>now>=t2m(s.start)&&now<t2m(s.end))||
+                   (lv.schedule.kkc||[]).some(s=>now>=t2m(s.start)&&now<t2m(s.end));
+  }
+
+  if(inFWSchedule||inCommSchedule){
+    alertEl.style.display='block';
+    const stoppedAt=lv.schedule.freshStopMin?m2t(lv.schedule.freshStopMin):'';
+    if(msgEl){
+      const zone=inFWSchedule?'FWPS distribution':(todayInfo&&todayInfo.zone==='kc'?'Khaur City supply':'Khaur Company supply');
+      msgEl.textContent='Water supply stopped'+( stoppedAt?' at '+stoppedAt:'')+' — '+zone+' is scheduled now';
+    }
+  } else {
+    alertEl.style.display='none';
+  }
+}
+
+function updateCommZone(prefix, sched, now, ikhlasAnyOn){
+  const timeEl=document.getElementById(prefix+'-zone-time');
+  const badgeEl=document.getElementById(prefix+'-zone-badge');
+  const progEl=document.getElementById(prefix+'-progress');
+  const remEl=document.getElementById(prefix+'-rem');
+  const cardEl=document.getElementById(prefix+'-zone-card');
+  const dateRangeEl=document.getElementById(prefix+'-date-range');
+  const nextDateEl=document.getElementById(prefix+'-next-date');
+
+  // ── Rotation-based date display ──
+  const todayInfo = getRotationInfo(todayStr());
+  const isRotationSetUp = !!lv.schedule.rotationStart;
+
+  if(isRotationSetUp){
+    const range = getCurrentZoneDateRange(prefix);
+    const nextRange = getNextZoneDates(prefix);
+    const isToday = todayInfo && todayInfo.zone === prefix;
+    const isBreak = todayInfo && todayInfo.zone === 'break';
+
+    if(dateRangeEl){
+      if(isToday && range){
+        dateRangeEl.textContent = range.from + ' – ' + range.to;
+        dateRangeEl.style.color = 'var(--teal)';
+      } else if(nextRange){
+        dateRangeEl.textContent = 'Next: ' + nextRange.from + ' – ' + nextRange.to;
+        dateRangeEl.style.color = 'var(--tx3)';
+      } else {
+        dateRangeEl.textContent = '—';
+      }
+    }
+    if(nextDateEl) nextDateEl.textContent = '';
+  } else {
+    if(dateRangeEl){dateRangeEl.textContent = 'Set rotation start date in Settings';}
+  }
+
+  if(!ikhlasAnyOn){
+    if(timeEl)timeEl.textContent='Ikhlas pumps off';
+    if(badgeEl){badgeEl.textContent='STOPPED';badgeEl.className='zone-badge badge-stopped';}
+    if(progEl)progEl.style.width='0%';
+    if(remEl)remEl.textContent='';
+    if(cardEl)cardEl.className='zone-card';
+    return;
+  }
+
+  if(!sched.length){
+    if(timeEl)timeEl.textContent='No schedule set';
+    if(badgeEl){badgeEl.textContent='—';badgeEl.className='zone-badge badge-break';}
+    return;
+  }
+
+  // ── Check rotation: is today this zone's turn? ──
+  if(isRotationSetUp && todayInfo){
+    if(todayInfo.zone !== prefix){
+      // Not this zone's turn today
+      const isBreak = todayInfo.zone === 'break';
+      if(timeEl)timeEl.textContent = isBreak ? 'Break day today' : 'Other zone active today';
+      if(badgeEl){badgeEl.textContent = isBreak ? 'BREAK' : 'BREAK';badgeEl.className='zone-badge badge-break';}
+      if(progEl)progEl.style.width='0%';
+      if(remEl)remEl.textContent='';
+      if(cardEl)cardEl.className='zone-card break-zone';
+      return;
+    }
+  }
+
+  const s=sched[0];
+  const eS=t2m(s.start), eE=t2m(s.end);
+  const otherSched=prefix==='kc'?(lv.schedule.kkc||[]):(lv.schedule.kc||[]);
+  const otherActive=otherSched.length&&now>=t2m(otherSched[0].start)&&now<t2m(otherSched[0].end);
+
+  if(timeEl)timeEl.textContent=m2t(eS)+' – '+m2t(eE);
+
+  if(now>=eS&&now<eE){
+    const pct=Math.round(((now-eS)/(eE-eS))*100);
+    const rem=eE-now;
+    if(badgeEl){badgeEl.textContent='ACTIVE';badgeEl.className='zone-badge badge-active';}
+    if(progEl)progEl.style.width=pct+'%';
+    if(remEl)remEl.textContent='⏳ '+Math.floor(rem/60)+'h '+(rem%60)+'m';
+    if(cardEl)cardEl.className='zone-card active-zone';
+  } else if(now>=eE){
+    if(badgeEl){badgeEl.textContent='DONE';badgeEl.className='zone-badge badge-done';}
+    if(progEl)progEl.style.width='100%';
+    if(remEl)remEl.textContent='';
+    if(cardEl)cardEl.className='zone-card';
+  } else if(otherActive){
+    if(badgeEl){badgeEl.textContent='BREAK';badgeEl.className='zone-badge badge-break';}
+    if(progEl)progEl.style.width='0%';
+    if(remEl)remEl.textContent='Other zone running';
+    if(cardEl)cardEl.className='zone-card break-zone';
+  } else {
+    const d=eS-now;
+    if(badgeEl){badgeEl.textContent='UPCOMING';badgeEl.className='zone-badge badge-upcoming';}
+    if(progEl)progEl.style.width='0%';
+    if(remEl)remEl.textContent='Starts in '+Math.floor(d/60)+'h '+d%60+'m';
+    if(cardEl)cardEl.className='zone-card';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// COMMUNITY ROTATION LOGIC
+// Pattern: KC day1, KC day2, BREAK, KKC day1, KKC day2, BREAK → repeat (6-day cycle)
+// ══════════════════════════════════════════════════════════
+
+function getRotationInfo(dateStr){
+  // dateStr: 'YYYY-MM-DD'
+  const rotStart = lv.schedule.rotationStart;
+  if(!rotStart) return null;
+
+  const d1 = new Date(rotStart + 'T00:00:00');
+  const d2 = new Date(dateStr + 'T00:00:00');
+  const diffDays = Math.round((d2 - d1) / 86400000);
+  if(diffDays < 0) return null; // before rotation start
+
+  const cycleDay = ((diffDays % 6) + 6) % 6; // 0-5
+  // 0,1 = Khaur City active
+  // 2   = Break day
+  // 3,4 = Khaur Company active
+  // 5   = Break day
+  if(cycleDay === 0 || cycleDay === 1) return {zone:'kc', label:'Khaur City', cycleDay};
+  if(cycleDay === 2) return {zone:'break', label:'Break Day', cycleDay};
+  if(cycleDay === 3 || cycleDay === 4) return {zone:'kkc', label:'Khaur Company', cycleDay};
+  if(cycleDay === 5) return {zone:'break', label:'Break Day', cycleDay};
+  return null;
+}
+
+function getRotationForDate(dateStr){
+  return getRotationInfo(dateStr);
+}
+
+// Get date range for current zone turn (when it started and when it ends)
+function getCurrentZoneDateRange(prefix){
+  if(!lv.schedule.rotationStart) return null;
+  const today = new Date();
+  const todayStr2 = today.toISOString().slice(0,10);
+  const info = getRotationInfo(todayStr2);
+  if(!info) return null;
+
+  const d1 = new Date(lv.schedule.rotationStart + 'T00:00:00');
+  const todayDate = new Date(todayStr2 + 'T00:00:00');
+  const diffDays = Math.round((todayDate - d1) / 86400000);
+  const cycleDay = ((diffDays % 6) + 6) % 6;
+
+  // Find start of current zone turn in this cycle
+  let turnStart, turnEnd;
+  if(prefix === 'kc'){
+    // KC is days 0,1 in each cycle
+    const cycleStart = diffDays - cycleDay; // day 0 of current cycle
+    const kcStart = cycleStart; // day 0
+    const kcEnd = cycleStart + 1; // day 1
+    turnStart = new Date(d1); turnStart.setDate(d1.getDate() + kcStart);
+    turnEnd = new Date(d1); turnEnd.setDate(d1.getDate() + kcEnd);
+  } else {
+    // KKC is days 3,4 in each cycle
+    const cycleStart = diffDays - cycleDay;
+    const kkcStart = cycleStart + 3;
+    const kkcEnd = cycleStart + 4;
+    turnStart = new Date(d1); turnStart.setDate(d1.getDate() + kkcStart);
+    turnEnd = new Date(d1); turnEnd.setDate(d1.getDate() + kkcEnd);
+  }
+
+  const fmt = (d) => d.toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+  return {from: fmt(turnStart), to: fmt(turnEnd), fromDate: turnStart, toDate: turnEnd};
+}
+
+// Get NEXT scheduled dates for a zone
+function getNextZoneDates(prefix){
+  if(!lv.schedule.rotationStart) return null;
+  const d1 = new Date(lv.schedule.rotationStart + 'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diffDays = Math.round((today - d1) / 86400000);
+  const cycleDay = ((diffDays % 6) + 6) % 6;
+  const cycleStart = diffDays - cycleDay;
+
+  let nextStart, nextEnd;
+  if(prefix === 'kc'){
+    // Is KC currently active or upcoming this cycle?
+    if(cycleDay <= 1){
+      nextStart = cycleStart;
+      nextEnd = cycleStart + 1;
+    } else {
+      // Next cycle
+      nextStart = cycleStart + 6;
+      nextEnd = cycleStart + 7;
+    }
+  } else {
+    if(cycleDay >= 3 && cycleDay <= 4){
+      nextStart = cycleStart + 3;
+      nextEnd = cycleStart + 4;
+    } else {
+      // Find next KKC
+      if(cycleDay < 3){
+        nextStart = cycleStart + 3;
+        nextEnd = cycleStart + 4;
+      } else {
+        nextStart = cycleStart + 9;
+        nextEnd = cycleStart + 10;
+      }
+    }
+  }
+
+  const startDate = new Date(d1); startDate.setDate(d1.getDate() + nextStart);
+  const endDate = new Date(d1); endDate.setDate(d1.getDate() + nextEnd);
+  const fmt = (d) => d.toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+  return {from: fmt(startDate), to: fmt(endDate)};
+}
+
+// Is today's zone active for given prefix?
+function isTodayZone(prefix){
+  const info = getRotationInfo(todayStr());
+  if(!info) return false;
+  return info.zone === prefix;
+}
+
+// ══════════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════════
+function unlockSettings(){
+  const v=document.getElementById('settings-pwd').value;
+  const errEl=document.getElementById('settings-err');
+  if(!v){if(errEl)errEl.textContent='Enter your PIN.';return;}
+
+  // Admin can use their password OR their PIN
+  const adminPwd=localStorage.getItem('fwps_pwd')||DEFAULT_PWD;
+  const isAdmin=currentUser&&currentUser.role==='admin';
+
+  // Admin: accept admin password (any length text) or PIN
+  if(isAdmin&&v===adminPwd){
+    settingsUnlocked=true;
+    showSettingsForUser('admin');
+    return;
+  }
+
+  // Any user: accept their 4-digit PIN
+  if(currentUser&&currentUser.pin&&String(currentUser.pin)===String(v)){
+    settingsUnlocked=true;
+    // Get fresh permissions from Firebase user record
+    const freshUser=Object.values(lv.registeredUsers||{}).find(u=>u.phone===currentUser.phone||u.id===currentUser.id);
+    const role=freshUser?freshUser.role:currentUser.role;
+    const perms=freshUser?freshUser.permissions:currentUser.permissions;
+    showSettingsForUser(role, perms);
+    return;
+  }
+
+  // Try matching by PIN from registered users (in case currentUser.pin is stale)
+  const matchedUser=Object.values(lv.registeredUsers||{}).find(u=>
+    String(u.pin)===String(v)&&(u.phone===currentUser?.phone||u.id===currentUser?.id)
+  );
+  if(matchedUser){
+    settingsUnlocked=true;
+    showSettingsForUser(matchedUser.role, matchedUser.permissions);
+    return;
+  }
+
+  if(errEl)errEl.textContent='Incorrect. Admin: use your password. Others: use your 4-digit PIN.';
+}
+
+function showSettingsForUser(role, customPerms){
+  document.getElementById('settings-lock').style.display='none';
+  document.getElementById('settings-content').style.display='block';
+  const pwdEl=document.getElementById('settings-pwd');if(pwdEl)pwdEl.value='';
+  const errEl=document.getElementById('settings-err');if(errEl)errEl.textContent='';
+
+  buildSettingsForms();
+
+  // Show/hide sections based on permissions
+  const isAdmin=role==='admin';
+  const perms=customPerms||ROLE_DEFAULTS[role]||ROLE_DEFAULTS.view;
+  const allowedSections=isAdmin?['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev']:(perms.sections||[]);
+
+  const allSections=['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev'];
+  // These sections are ADMIN ONLY regardless of permissions
+  const adminOnlySections=['s-emp','s-pwd','s-dev'];
+
+  allSections.forEach(sid=>{
+    const bodyEl=document.getElementById(sid);
+    if(!bodyEl)return;
+    const sectionDiv=bodyEl.closest('.settings-section');
+    if(!sectionDiv)return;
+    // Admin-only sections: never show to non-admin
+    if(adminOnlySections.includes(sid)&&!isAdmin){
+      sectionDiv.style.display='none';
+      return;
+    }
+    const canAccess=isAdmin||allowedSections.includes(sid);
+    sectionDiv.style.display=canAccess?'':'none';
+  });
+
+  // Show user context at top of settings
+  const contextEl=document.getElementById('settings-user-context');
+  if(contextEl){
+    contextEl.innerHTML=isAdmin
+      ? '<span style="color:var(--green);">🔑 Admin Access — All sections visible</span>'
+      : '<span style="color:var(--blue);">👤 '+escHtml(currentUser?.name||'User')+' — Only your permitted sections shown</span>';
+    contextEl.style.display='block';
+  }
+}
+
+function lockSettings(){
+  settingsUnlocked=false;
+  document.getElementById('settings-lock').style.display='block';
+  document.getElementById('settings-content').style.display='none';
+  // Reset all sections visible for next unlock
+  ['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd','s-dev'].forEach(sid=>{
+    const bodyEl=document.getElementById(sid);
+    if(bodyEl){const sec=bodyEl.closest('.settings-section');if(sec)sec.style.display='';}
+  });
+  const ctx=document.getElementById('settings-user-context');if(ctx)ctx.style.display='none';
+}
+
+function toggleSection(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const isHidden=el.style.display==='none';
+  el.style.display=isHidden?'block':'none';
+  const arrow=document.getElementById(id+'-arrow');
+  if(arrow)arrow.textContent=isHidden?'▲':'▼';
+}
+
+function buildSettingsForms(){
+  if(!settingsUnlocked)return;
+  renderPinResetRequests();
+  updateGistSetupUI();
+  buildPondSettings();
+  buildPumpSettings();
+  buildOpsSettings();
+  buildScheduleSettings();
+  buildLeakageSettings();
+  buildEmployeeList();
+}
+
+// POND SETTINGS
+function buildPondSettings(){
+  const el1=document.getElementById('set-pond-level');
+  const el2=document.getElementById('set-pond-max');
+  if(el1)el1.value=lv.pond.level||"7'6\"";
+  if(el2)el2.value=lv.pond.max||"10'0\"";
+}
+
+function parseFI(s){const m=(s||'').match(/(\d+)'(\d+)"/);return m?parseInt(m[1])*12+parseInt(m[2]):0;}
+
+function savePondLevel(){
+  const level=document.getElementById('set-pond-level').value;
+  const max=document.getElementById('set-pond-max').value;
+  const rem=document.getElementById('set-pond-rem').value;
+  const lIn=parseFI(level),mIn=parseFI(max);
+  const pct=mIn>0?Math.min(100,Math.round(lIn/mIn*100)):0;
+  const now=new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
+  lv.pond={level,max,pct,updated:todayStr()+' '+now,remarks:rem};
+  // Save to records
+  const key=todayStr().replace(/-/g,'');
+  if(!rec.pond)rec.pond={};
+  rec.pond[key]={date:todayStr(),level,max,pct,remarks:rem,by:currentUser?.name||'',ts:Date.now()};
+  syncAll();
+  renderPondDash();
+  alert('✅ Pond level saved!');
+}
+
+// PUMP SETTINGS
+function buildPumpSettings(){
+  const el=document.getElementById('pump-settings-list');if(!el)return;
+  const FAULT_OPTS=['','Motor Problem','Pump Mechanical Fault','Electrical Tripping','Thunderstorm / Lightning','Power Failure','Routine Maintenance','Other'];
+  el.innerHTML=lv.pumps.map((p,i)=>`
+    <div style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:8px;border:1px solid ${p.type==='fw'?'rgba(34,197,94,.2)':'rgba(20,184,166,.2)'};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:10px;padding:2px 7px;border-radius:10px;background:${p.type==='fw'?'rgba(34,197,94,.15)':'rgba(20,184,166,.15)'};color:${p.type==='fw'?'var(--green)':'var(--teal)'};">${p.type==='fw'?'FW':'IW'}</span>
+        <input type="text" value="${p.name}" onchange="updatePumpName(${i},this.value)" style="flex:1;background:var(--bg2);border:1px solid var(--bor);border-radius:6px;padding:5px 8px;color:var(--tx);font-size:12px;outline:none;">
+        <button onclick="removePump(${i})" style="padding:4px 8px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.1);color:var(--red);border-radius:6px;font-size:11px;cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="tog-wrap">
+          <label class="tog"><input type="checkbox" ${p.on?'checked':''} onchange="togglePump(${i},this.checked)"><span class="tog-sl"></span></label>
+          <span style="font-size:12px;font-weight:600;color:${p.on?'var(--green)':'var(--tx3)'};">${p.on?'ON':'OFF'}</span>
+        </div>
+        <select onchange="setPumpFault(${i},this.value)" style="flex:1;background:var(--bg2);border:1px solid ${p.fault?'rgba(245,158,11,.4)':'var(--bor)'};border-radius:6px;padding:5px 8px;color:${p.fault?'var(--amber)':'var(--tx2)'};font-size:11px;outline:none;appearance:none;min-width:120px;">
+          ${FAULT_OPTS.map(o=>`<option value="${o}" ${p.fault===o?'selected':''}>${o||'— No Fault —'}</option>`).join('')}
+        </select>
+      </div>
+      <div style="font-size:10px;color:var(--tx3);margin-top:5px;font-family:var(--fm);">Runtime today: ${Math.floor(getCurRuntime(p)/60)}h ${getCurRuntime(p)%60}m</div>
+    </div>`).join('');
+}
+
+function updatePumpName(i,name){lv.pumps[i].name=name;}
+function removePump(i){if(!confirm('Remove pump '+lv.pumps[i].name+'?'))return;lv.pumps.splice(i,1);buildPumpSettings();renderPumpsDash();}
+function addPump(type){
+  const n=prompt('Pump name:');if(!n)return;
+  const id=(type==='fw'?'fw':'iw')+Date.now();
+  lv.pumps.push({id,name:n,type,on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:type==='iw'});
+  buildPumpSettings();renderPumpsDash();syncAll();
+}
+
+function togglePump(i,on){
+  const p=lv.pumps[i];const now=new Date();
+  if(on){
+    p.on=true;p.startEpoch=Date.now();p.fault='';
+    // If fresh pump restarted, calculate delay
+    if(p.type==='fw'&&lv.schedule.freshStopMin!==null){
+      const addDelay=nowMins()-lv.schedule.freshStopMin;
+      if(addDelay>0)lv.schedule.freshDelay=(lv.schedule.freshDelay||0)+addDelay;
+      lv.schedule.freshStopMin=null;
+    }
+  } else {
+    let runM=0;
+    if(p.startEpoch)runM=Math.floor((Date.now()-p.startEpoch)/1000/60);
+    p.runtimeMins=(p.runtimeMins||0)+runM;
+    p.on=false;p.startEpoch=null;
+    // Record pump event
+    const key='pe_'+Date.now();
+    if(!rec.pump)rec.pump={};
+    rec.pump[key]={date:todayStr(),pumpId:p.id,pumpName:p.name,event:'STOP',
+      time:now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false}),
+      runtimeMins:runM,fault:p.fault,by:currentUser?.name||'',ts:Date.now()};
+    // Check all FW pumps stopped
+    if(p.type==='fw'){
+      const anyFW=lv.pumps.filter(x=>x.type==='fw').some(x=>x.on);
+      if(!anyFW)lv.schedule.freshStopMin=nowMins();
+    }
+    // Check all IW pumps stopped
+    if(p.isIkhlas){
+      const anyIW=lv.pumps.filter(x=>x.isIkhlas).some(x=>x.on);
+      if(!anyIW)showCriticalAlert('⛔ ALL IKHLAS PUMPS STOPPED','Community water supply suspended at '+now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false}));
+    }
+  }
+  buildPumpSettings();renderPumpsDash();syncAll();
+}
+
+function setPumpFault(i,fault){
+  lv.pumps[i].fault=fault;
+  if(fault){
+    const key='pe_'+Date.now();
+    if(!rec.pump)rec.pump={};
+    const now=new Date();
+    rec.pump[key]={date:todayStr(),pumpId:lv.pumps[i].id,pumpName:lv.pumps[i].name,event:'FAULT',
+      time:now.toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false}),
+      runtimeMins:0,fault,by:currentUser?.name||'',ts:Date.now()};
+    syncAll();
+  }
+  buildPumpSettings();renderPumpsDash();
+}
+
+function getCurRuntime(p){
+  let rt=p.runtimeMins||0;
+  if(p.on&&p.startEpoch)rt+=Math.floor((Date.now()-p.startEpoch)/1000/60);
+  return rt;
+}
+
+function updateRuntimes(){buildPumpSettings();renderPumpsDash();}
+
+// OPS SETTINGS
+function buildOpsSettings(){
+  const SHIFTS=['Morning','Evening','Night'];
+  const build=(contId,ops)=>{
+    const el=document.getElementById(contId);if(!el)return;
+    el.innerHTML=ops.map((o,i)=>`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px;">
+        <div class="ig" style="margin-bottom:0;"><label>OPERATOR ${i+1} NAME</label>
+          <input type="text" value="${o.name}" placeholder="Enter name" onchange="updateOp('${contId}',${i},'name',this.value)">
+        </div>
+        <div class="ig" style="margin-bottom:0;"><label>SHIFT</label>
+          <select onchange="updateOp('${contId}',${i},'shift',this.value)">
+            ${SHIFTS.map(s=>`<option value="${s}" ${o.shift===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>`).join('');
+  };
+  build('fw-ops-settings',lv.operators.fw||[]);
+  build('iw-ops-settings',lv.operators.iw||[]);
+}
+
+function updateOp(contId,i,field,val){
+  const isfw=contId.startsWith('fw');
+  if(isfw)lv.operators.fw[i][field]=val;
+  else lv.operators.iw[i][field]=val;
+}
+
+function saveOperators(){
+  // Save daily record
+  const key=todayStr().replace(/-/g,'');
+  if(!rec.operators)rec.operators={};
+  rec.operators[key]={date:todayStr(),fw:lv.operators.fw,iw:lv.operators.iw,by:currentUser?.name||'',ts:Date.now()};
+  syncAll();renderOpsDash();alert('✅ Operators saved!');
+}
+
+// SCHEDULE SETTINGS
+function saveRotationStart(){
+  const v=document.getElementById('rotation-start-inp').value;
+  if(!v){alert('Please select a start date.');return;}
+  lv.schedule.rotationStart=v;
+  syncAll();
+  previewRotation();
+  updateScheduleStatus();
+  alert('✅ Rotation start date saved! The system will now auto-calculate Khaur City and Khaur Company dates.');
+}
+
+function previewRotation(){
+  const inpEl=document.getElementById('rotation-start-inp');
+  const v=inpEl?inpEl.value:lv.schedule.rotationStart;
+  const prevEl=document.getElementById('rotation-calendar-preview');
+  const todayPrevEl=document.getElementById('today-rotation-preview');
+  if(!v)return;
+
+  // Save temporarily to calculate
+  const origStart=lv.schedule.rotationStart;
+  lv.schedule.rotationStart=v;
+
+  // Today's info
+  const todayInfo=getRotationInfo(todayStr());
+  if(todayPrevEl){
+    if(!todayInfo){
+      todayPrevEl.textContent='Before rotation start';
+      todayPrevEl.style.color='var(--tx3)';
+    } else if(todayInfo.zone==='kc'){
+      todayPrevEl.innerHTML='<span style="color:var(--teal);font-weight:600;">Khaur City</span> (Day '+(todayInfo.cycleDay+1)+' of 2)';
+    } else if(todayInfo.zone==='kkc'){
+      todayPrevEl.innerHTML='<span style="color:var(--blue);font-weight:600;">Khaur Company</span> (Day '+(todayInfo.cycleDay-2)+' of 2)';
+    } else {
+      todayPrevEl.innerHTML='<span style="color:var(--tx3);">Break Day</span>';
+    }
+  }
+
+  // Build 14-day preview calendar
+  if(prevEl){
+    const ZONE_COLORS={kc:'rgba(20,184,166,.2)',kkc:'rgba(59,130,246,.2)',break:'rgba(100,116,139,.1)'};
+    const ZONE_LABELS={kc:'Khaur City',kkc:'Khaur Company',break:'Break'};
+    const ZONE_COLORS_TEXT={kc:'var(--teal)',kkc:'var(--blue)',break:'var(--tx3)'};
+    let html='<div style="font-size:10px;font-weight:600;color:var(--tx3);margin-bottom:6px;letter-spacing:.5px;">14-DAY PREVIEW</div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{
+      html+='<div style="text-align:center;font-size:9px;color:var(--tx3);padding:2px;">'+d+'</div>';
+    });
+
+    const startD=new Date();startD.setHours(0,0,0,0);
+    for(let i=0;i<14;i++){
+      const d=new Date(startD);d.setDate(startD.getDate()+i);
+      const ds=d.toISOString().slice(0,10);
+      const info=getRotationInfo(ds);
+      const zone=info?info.zone:'none';
+      const bg=ZONE_COLORS[zone]||'transparent';
+      const txtCol=ZONE_COLORS_TEXT[zone]||'var(--tx3)';
+      const isToday=ds===todayStr();
+      const dayNum=d.getDate();
+      const label=ZONE_LABELS[zone]?ZONE_LABELS[zone].replace('Khaur ',''):'—';
+      html+='<div style="background:'+bg+';border-radius:4px;padding:3px 2px;text-align:center;border:'+( isToday?'1px solid var(--cyan)':'1px solid transparent')+';position:relative;">'
+        +'<div style="font-size:10px;font-weight:'+(isToday?'700':'500')+';color:'+(isToday?'var(--cyan)':txtCol)+';">'+dayNum+'</div>'
+        +'<div style="font-size:8px;color:'+txtCol+';line-height:1.2;">'+label+'</div>'
+        +'</div>';
+    }
+    html+='</div>';
+    prevEl.innerHTML=html;
+  }
+
+  // Restore if just previewing
+  if(!document.getElementById('rotation-start-inp')?.value){
+    lv.schedule.rotationStart=origStart;
+  }
+}
+
+function buildScheduleSettings(){
+  // Load auto control state
+  const autoToggle=document.getElementById('auto-control-toggle');
+  if(autoToggle)autoToggle.checked=!!lv.schedule.autoControl;
+  updateAutoControlUI();
+  // Load rotation start date
+  const rotInp=document.getElementById('rotation-start-inp');
+  if(rotInp&&lv.schedule.rotationStart){
+    rotInp.value=lv.schedule.rotationStart;
+    previewRotation();
+  }
+  const buildList=(contId,zones)=>{
+    const el=document.getElementById(contId);if(!el)return;
+    el.innerHTML=zones.map((z,i)=>`
+      <div style="background:var(--bg3);border-radius:var(--r2);padding:9px;margin-bottom:6px;">
+        <div class="grid2">
+          <div class="ig" style="margin-bottom:0;"><label>ZONE NAME</label><input type="text" id="${contId}-${i}-area" value="${z.area}"></div>
+          <div></div>
+          <div class="ig" style="margin-bottom:0;"><label>START TIME</label><input type="time" id="${contId}-${i}-start" value="${z.start}"></div>
+          <div class="ig" style="margin-bottom:0;"><label>END TIME</label><input type="time" id="${contId}-${i}-end" value="${z.end}"></div>
+        </div>
+      </div>`).join('');
+  };
+  buildList('sch-morning-edit',lv.schedule.morning||[]);
+  buildList('sch-evening-edit',lv.schedule.evening||[]);
+  buildList('sch-kc-edit',lv.schedule.kc||[]);
+  buildList('sch-kkc-edit',lv.schedule.kkc||[]);
+}
+
+// ══ AUTO PUMP SCHEDULE CONTROL ══
+function setAutoControl(enabled){
+  lv.schedule.autoControl = enabled;
+  syncAll();
+  updateAutoControlUI();
+  if(enabled){
+    runAutoScheduleCheck(); // immediate check
+  }
+}
+
+function updateAutoControlUI(){
+  const toggle = document.getElementById('auto-control-toggle');
+  const status = document.getElementById('auto-control-status');
+  if(toggle) toggle.checked = !!lv.schedule.autoControl;
+  if(!status) return;
+  if(!lv.schedule.autoControl){
+    status.textContent = 'Auto control is OFF — pumps must be started manually';
+    status.style.color = 'var(--tx3)';
+    return;
+  }
+  // Show next auto action
+  const now = nowMins();
+  const allZones = [...(lv.schedule.morning||[]),...(lv.schedule.evening||[])];
+  if(!allZones.length){ status.textContent = 'No schedule set'; return; }
+  const firstStart = Math.min(...allZones.map(z=>t2m(z.start)));
+  const lastEnd   = Math.max(...allZones.map(z=>t2m(z.end)));
+  const inSchedule = now >= firstStart && now < lastEnd;
+  if(inSchedule){
+    const rem = lastEnd - now;
+    status.textContent = '✅ Schedule active — pumps will auto-stop at '+m2t(lastEnd)+' (in '+Math.floor(rem/60)+'h '+rem%60+'m)';
+    status.style.color = 'var(--green)';
+  } else if(now < firstStart){
+    const d = firstStart - now;
+    status.textContent = '⏰ Pumps will auto-start at '+m2t(firstStart)+' (in '+Math.floor(d/60)+'h '+d%60+'m)';
+    status.style.color = 'var(--amber)';
+  } else {
+    status.textContent = '✅ Today schedule complete — pumps will auto-start tomorrow at '+m2t(firstStart);
+    status.style.color = 'var(--blue)';
+  }
+}
+
+function runAutoScheduleCheck(){
+  if(!lv.schedule.autoControl) return;
+  const now = nowMins();
+  const today = todayStr();
+  const allZones = [...(lv.schedule.morning||[]),...(lv.schedule.evening||[])];
+  if(!allZones.length) return;
+  const delay = lv.schedule.freshDelay||0;
+  const stopMin = lv.schedule.freshStopMin;
+  // Apply delays
+  const effectiveZones = allZones.map(z=>{
+    const oS=t2m(z.start), oE=t2m(z.end);
+    const after = stopMin!==null&&stopMin!==undefined&&oS>=stopMin;
+    return {eS:after?oS+delay:oS, eE:after?oE+delay:oE};
+  });
+  const firstStart = Math.min(...effectiveZones.map(z=>z.eS));
+  const lastEnd   = Math.max(...effectiveZones.map(z=>z.eE));
+  const inSchedule = now >= firstStart && now < lastEnd;
+  const fwPumps = lv.pumps.filter(p=>p.type==='fw');
+  const anyFWOn = fwPumps.some(p=>p.on);
+
+  if(inSchedule && !anyFWOn){
+    // Schedule is active but pumps are OFF — auto start all FW pumps
+    const startKey = today+' '+m2t(firstStart);
+    if(lv.schedule.autoLastStart === startKey) return; // already started today
+    lv.schedule.autoLastStart = startKey;
+    const timeStr = new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
+    fwPumps.forEach((p,i)=>{
+      const idx = lv.pumps.indexOf(p);
+      p.on = true; p.startEpoch = Date.now(); p.fault = '';
+      // Log auto-start event
+      const key='pe_'+Date.now()+'_'+i;
+      if(!rec.pump)rec.pump={};
+      rec.pump[key]={date:today,pumpId:p.id,pumpName:p.name,event:'AUTO-START',
+        time:timeStr,runtimeMins:0,fault:'',by:'AUTO-SCHEDULE',ts:Date.now()};
+    });
+    syncAll();
+    buildPumpSettings();renderPumpsDash();
+    showAutoNotification('🟢 AUTO-START','FW pumps auto-started at '+timeStr+' — Schedule is active');
+  }
+  else if(!inSchedule && anyFWOn && now > lastEnd){
+    // Schedule ended but pumps still ON — auto stop all FW pumps
+    const stopKey = today+' '+m2t(lastEnd);
+    if(lv.schedule.autoLastStop === stopKey) return; // already stopped today
+    lv.schedule.autoLastStop = stopKey;
+    const timeStr = new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
+    fwPumps.filter(p=>p.on).forEach((p,i)=>{
+      let runM = 0;
+      if(p.startEpoch) runM = Math.floor((Date.now()-p.startEpoch)/1000/60);
+      p.runtimeMins = (p.runtimeMins||0)+runM;
+      p.on = false; p.startEpoch = null;
+      const key='pe_'+Date.now()+'_'+i;
+      if(!rec.pump)rec.pump={};
+      rec.pump[key]={date:today,pumpId:p.id,pumpName:p.name,event:'AUTO-STOP',
+        time:timeStr,runtimeMins:runM,fault:'',by:'AUTO-SCHEDULE',ts:Date.now()};
+    });
+    // Reset daily counters for next day
+    lv.schedule.freshDelay = 0;
+    lv.schedule.freshStopMin = null;
+    syncAll();
+    buildPumpSettings();renderPumpsDash();
+    showAutoNotification('🔴 AUTO-STOP','FW pumps auto-stopped at '+timeStr+' — Schedule complete');
+  }
+  updateAutoControlUI();
+}
+
+function showAutoNotification(title, msg){
+  // Show on dashboard
+  let el = document.getElementById('auto-notify');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'auto-notify';
+    el.style.cssText='position:fixed;top:80px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid rgba(34,197,94,.4);border-radius:10px;padding:10px 16px;z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:340px;min-width:260px;';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<div><div style="font-size:12px;font-weight:700;color:var(--green);">'+title+'</div>'
+    +'<div style="font-size:11px;color:var(--tx2);">'+msg+'</div></div>';
+  el.style.display='flex';
+  setTimeout(()=>{if(el)el.style.display='none';}, 8000);
+}
+
+// Run auto check every 60 seconds
+setInterval(runAutoScheduleCheck, 60000);
+
+function saveSchedule(){
+  const readList=(contId,zones)=>{
+    zones.forEach((z,i)=>{
+      const a=document.getElementById(contId+'-'+i+'-area');
+      const s=document.getElementById(contId+'-'+i+'-start');
+      const e=document.getElementById(contId+'-'+i+'-end');
+      if(a)z.area=a.value;if(s)z.start=s.value;if(e)z.end=e.value;
+    });
+  };
+  readList('sch-morning-edit',lv.schedule.morning);
+  readList('sch-evening-edit',lv.schedule.evening);
+  readList('sch-kc-edit',lv.schedule.kc);
+  readList('sch-kkc-edit',lv.schedule.kkc);
+  // Save daily record
+  const key=todayStr().replace(/-/g,'');
+  if(!rec.schedule)rec.schedule={};
+  rec.schedule[key]={date:todayStr(),morning:lv.schedule.morning,evening:lv.schedule.evening,kc:lv.schedule.kc,kkc:lv.schedule.kkc,by:currentUser?.name||'',ts:Date.now()};
+  syncAll();alert('✅ Schedule saved and synced!');
+}
+
+function resetScheduleDelay(){
+  lv.schedule.freshDelay=0;lv.schedule.freshStopMin=null;syncAll();alert('✅ Schedule delays reset.');
+}
+
+// LEAKAGE SETTINGS
+function buildLeakageSettings(){
+  const el=document.getElementById('set-leak-date');
+  if(el&&!el.value)el.value=todayStr();
+}
+
+function addLeakage(){
+  const pole=(document.getElementById('set-leak-pole')||{}).value.trim();
+  const sev=(document.getElementById('set-leak-sev')||{}).value;
+  const date=(document.getElementById('set-leak-date')||{}).value;
+  const fix=(document.getElementById('set-leak-fix')||{}).value;
+  const loc=(document.getElementById('set-leak-loc')||{}).value.trim();
+  const rem=(document.getElementById('set-leak-rem')||{}).value.trim();
+  if(!pole||!date){alert('Please enter Pole Number and Date.');return;}
+  const id='lk_'+Date.now();
+  if(!lv.leakages)lv.leakages={};
+  lv.leakages[id]={id,pole,severity:sev,reportDate:date,fixedDate:fix,location:loc,remarks:rem,by:currentUser?.name||'',ts:Date.now()};
+  syncAll();renderLastLeakDash();
+  ['set-leak-pole','set-leak-fix','set-leak-loc','set-leak-rem'].forEach(x=>{const e=document.getElementById(x);if(e)e.value='';});
+  alert('✅ Leakage record added!');
+}
+
+// PASSWORDS
+function changePassword(){
+  const p1=document.getElementById('new-pwd1').value;
+  const p2=document.getElementById('new-pwd2').value;
+  if(!p1){alert('Enter new password');return;}
+  if(p1!==p2){alert('Passwords do not match');return;}
+  localStorage.setItem('fwps_pwd',p1);
+  alert('✅ Password changed!');
+}
+
+function buildRegUsersList(){
+  const el=document.getElementById('reg-users-list');if(!el)return;
+  const users=Object.values(lv.registeredUsers||{});
+  if(!users.length){el.innerHTML='<div style="font-size:11px;color:var(--tx3);">No registered users yet</div>';return;}
+  el.innerHTML=users.map(u=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg3);border-radius:var(--r2);margin-bottom:6px;">
+      <div>
+        <div style="font-size:12px;font-weight:600;">${u.name||'—'}</div>
+        <div style="font-size:10px;color:var(--tx3);">${u.phone||'—'}</div>
+      </div>
+      <button onclick="removeUser('${u.deviceId}')" class="del-btn">Remove</button>
+    </div>`).join('');
+}
+
+function removeUser(did){
+  if(!confirm('Remove this user?'))return;
+  delete lv.registeredUsers[did];
+  syncAll();buildRegUsersList();
+}
+
+// ══════════════════════════════════════════════════════════
+// RECORDS TAB
+// ══════════════════════════════════════════════════════════
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildRecordFilters(){
+  const el=document.getElementById('rec-filter-row');if(!el)return;
+  const years=[...new Set(Object.keys({...rec.pond,...rec.pump,...rec.operators,...rec.schedule}).map(k=>k.substr(0,4)))].sort().reverse();
+  let html=`<button class="filter-btn active" onclick="setFilter('all','all',this)">All</button>`;
+  years.forEach(y=>{
+    html+=`<button class="filter-btn" onclick="setFilter('${y}','all',this)">${y}</button>`;
+    MONTHS.forEach((m,i)=>{
+      html+=`<button class="filter-btn" onclick="setFilter('${y}','${String(i+1).padStart(2,'0')}',this)">${m} ${y}</button>`;
+    });
+  });
+  el.innerHTML=html;
+}
+
+function setFilter(y,m,el){
+  filterYear=y;filterMonth=m;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderActiveRecord();
+}
+
+function filterKey(key){
+  // key format: YYYYMMDD or YYYYMMDD-based
+  const k=String(key);
+  if(filterYear==='all')return true;
+  if(!k.startsWith(filterYear))return false;
+  if(filterMonth==='all')return true;
+  return k.substr(4,2)===filterMonth;
+}
+
+function renderActiveRecord(){
+  const type=(document.getElementById('rec-type-sel')||{}).value||'pond';
+  const el=document.getElementById('rec-content-area');if(!el)return;
+
+  if(type==='pond') renderPondRec(el);
+  else if(type==='pump') renderPumpRec(el);
+  else if(type==='operators') renderOpsRec(el);
+  else if(type==='schedule') renderSchRec(el);
+  else if(type==='leakage') renderLeakRec(el);
+}
+
+function renderPondRec(el){
+  const rows=Object.entries(rec.pond||{}).filter(([k])=>filterKey(k)).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!rows.length){el.innerHTML='<div class="empty-state">No pond records for selected period</div>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Date</th><th>Level</th><th>Max</th><th>%</th><th>Remarks</th><th>By</th><th>Action</th></tr></thead>
+    <tbody>${rows.map(([k,r])=>`<tr>
+      <td>${r.date||'—'}</td><td style="font-family:var(--fm);">${r.level||'—'}</td><td>${r.max||'—'}</td>
+      <td>${r.pct||0}%</td><td>${r.remarks||'—'}</td><td style="color:var(--tx3);">${r.by||'—'}</td>
+      <td><button class="edit-btn" onclick="editRec('pond','${k}')">Edit</button><button class="del-btn" onclick="delRec('pond','${k}')">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderPumpRec(el){
+  const rows=Object.entries(rec.pump||{}).filter(([k,r])=>filterKey((r.date||'').replace(/-/g,''))).sort((a,b)=>b[1].ts-a[1].ts).slice(0,300);
+  if(!rows.length){el.innerHTML='<div class="empty-state">No pump records for selected period</div>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Date</th><th>Time</th><th>Pump</th><th>Event</th><th>Runtime</th><th>Fault</th><th>By</th><th>Action</th></tr></thead>
+    <tbody>${rows.map(([k,r])=>`<tr>
+      <td>${r.date||'—'}</td><td style="font-family:var(--fm);">${r.time||'—'}</td>
+      <td>${(r.pumpName||'').replace('Fresh Water','FW').replace('Ikhlas Water','IW')}</td>
+      <td style="color:${r.event==='STOP'?'var(--red)':r.event==='FAULT'?'var(--amber)':'var(--green)'};">${r.event||'—'}</td>
+      <td>${r.runtimeMins?Math.floor(r.runtimeMins/60)+'h '+(r.runtimeMins%60)+'m':'—'}</td>
+      <td style="color:var(--amber);">${r.fault||'—'}</td><td style="color:var(--tx3);">${r.by||'—'}</td>
+      <td><button class="edit-btn" onclick="editRec('pump','${k}')">Edit</button><button class="del-btn" onclick="delRec('pump','${k}')">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderOpsRec(el){
+  const rows=Object.entries(rec.operators||{}).filter(([k])=>filterKey(k)).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!rows.length){el.innerHTML='<div class="empty-state">No operator records for selected period</div>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Date</th><th>FW Operators</th><th>IW Operators</th><th>By</th><th>Action</th></tr></thead>
+    <tbody>${rows.map(([k,r])=>`<tr>
+      <td>${r.date||'—'}</td>
+      <td>${(r.fw||[]).filter(o=>o.name).map(o=>o.name+' ('+o.shift+')').join(', ')||'—'}</td>
+      <td>${(r.iw||[]).filter(o=>o.name).map(o=>o.name+' ('+o.shift+')').join(', ')||'—'}</td>
+      <td style="color:var(--tx3);">${r.by||'—'}</td>
+      <td><button class="del-btn" onclick="delRec('operators','${k}')">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderSchRec(el){
+  const rows=Object.entries(rec.schedule||{}).filter(([k])=>filterKey(k)).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(!rows.length){el.innerHTML='<div class="empty-state">No schedule records for selected period</div>';return;}
+  el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Date</th><th>Morning</th><th>Evening</th><th>Khaur City</th><th>Khaur Co.</th><th>By</th><th>Action</th></tr></thead>
+    <tbody>${rows.map(([k,r])=>`<tr>
+      <td>${r.date||'—'}</td>
+      <td>${(r.morning||[]).map(z=>z.area+' '+z.start+'-'+z.end).join(', ')||'—'}</td>
+      <td>${(r.evening||[]).map(z=>z.area).join(', ')||'—'}</td>
+      <td>${(r.kc||[]).map(z=>z.start+'-'+z.end).join(', ')||'—'}</td>
+      <td>${(r.kkc||[]).map(z=>z.start+'-'+z.end).join(', ')||'—'}</td>
+      <td style="color:var(--tx3);">${r.by||'—'}</td>
+      <td><button class="del-btn" onclick="delRec('schedule','${k}')">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function renderLeakRec(el){
+  const rows=Object.entries(lv.leakages||{}).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0));
+  // Apply date filter
+  const filtered=rows.filter(([k,r])=>{
+    if(filterYear==='all')return true;
+    const d=(r.reportDate||'').replace(/-/g,'');
+    if(!d.startsWith(filterYear))return false;
+    if(filterMonth==='all')return true;
+    return d.substr(4,2)===filterMonth;
+  });
+  if(!filtered.length){el.innerHTML='<div class="empty-state">No leakage records for selected period</div>';return;}
+  const sevClass=s=>s==='Critical'?'sev-critical':s==='Major'?'sev-major':'sev-minor';
+  el.innerHTML=`<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Report Date</th><th>Pole</th><th>Location</th><th>Severity</th><th>Status</th><th>Fixed Date</th><th>Remarks</th><th>Action</th></tr></thead>
+    <tbody>${filtered.map(([k,r])=>`<tr>
+      <td>${r.reportDate||'—'}</td><td style="font-family:var(--fm);">${r.pole||'—'}</td>
+      <td>${r.location||'—'}</td>
+      <td><span class="leak-sev ${sevClass(r.severity)}">${r.severity||'—'}</span></td>
+      <td style="color:${r.fixedDate?'var(--green)':'var(--red)'};">${r.fixedDate?'Fixed':'Open'}</td>
+      <td>${r.fixedDate||'—'}</td><td>${r.remarks||'—'}</td>
+      <td><button class="edit-btn" onclick="editLeakage('${k}')">Edit</button><button class="del-btn" onclick="delLeakage('${k}')">Del</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// EDIT / DELETE RECORDS
+// ══════════════════════════════════════════════════════════
+function delRec(type,key){
+  const pwd=prompt('Enter admin password to delete:');
+  if(pwd==null)return;
+  if(pwd!==(localStorage.getItem('fwps_pwd')||DEFAULT_PWD)){alert('Incorrect password');return;}
+  if(!confirm('Delete this record?'))return;
+  if(rec[type])delete rec[type][key];
+  syncAll();renderActiveRecord();buildRecordFilters();
+}
+
+function delLeakage(key){
+  const pwd=prompt('Enter admin password to delete:');
+  if(pwd==null)return;
+  if(pwd!==(localStorage.getItem('fwps_pwd')||DEFAULT_PWD)){alert('Incorrect password');return;}
+  if(!confirm('Delete this leakage record?'))return;
+  delete lv.leakages[key];
+  syncAll();renderLeakRec(document.getElementById('rec-content-area'));renderLastLeakDash();
+}
+
+function editRec(type,key){
+  const r=rec[type]&&rec[type][key];if(!r)return;
+  const modal=document.getElementById('edit-modal');
+  const title=document.getElementById('edit-modal-title');
+  const body=document.getElementById('edit-modal-body');
+  title.textContent='Edit Record';
+  let fields='';
+  if(type==='pond'){
+    fields=`<div class="ig"><label>LEVEL</label><input type="text" id="em-level" value="${r.level||''}"></div>
+      <div class="ig"><label>MAX</label><input type="text" id="em-max" value="${r.max||''}"></div>
+      <div class="ig"><label>REMARKS</label><input type="text" id="em-rem" value="${r.remarks||''}"></div>`;
+  } else if(type==='pump'){
+    fields=`<div class="ig"><label>PUMP</label><input type="text" id="em-pump" value="${r.pumpName||''}" readonly></div>
+      <div class="ig"><label>EVENT</label><select id="em-event"><option ${r.event==='STOP'?'selected':''}>STOP</option><option ${r.event==='START'?'selected':''}>START</option><option ${r.event==='FAULT'?'selected':''}>FAULT</option></select></div>
+      <div class="ig"><label>FAULT</label><input type="text" id="em-fault" value="${r.fault||''}"></div>
+      <div class="ig"><label>RUNTIME (mins)</label><input type="number" id="em-rt" value="${r.runtimeMins||0}"></div>`;
+  }
+  body.innerHTML=fields;
+  editModalCallback=()=>{
+    if(type==='pond'){
+      r.level=document.getElementById('em-level').value;
+      r.max=document.getElementById('em-max').value;
+      r.remarks=document.getElementById('em-rem').value;
+      const lIn=parseFI(r.level),mIn=parseFI(r.max);
+      r.pct=mIn>0?Math.min(100,Math.round(lIn/mIn*100)):0;
+    } else if(type==='pump'){
+      r.event=document.getElementById('em-event').value;
+      r.fault=document.getElementById('em-fault').value;
+      r.runtimeMins=parseInt(document.getElementById('em-rt').value)||0;
+    }
+    syncAll();renderActiveRecord();
+  };
+  modal.classList.add('open');
+}
+
+function editLeakage(key){
+  const r=lv.leakages[key];if(!r)return;
+  const body=document.getElementById('edit-modal-body');
+  document.getElementById('edit-modal-title').textContent='Edit Leakage Record';
+  body.innerHTML=`<div class="ig"><label>POLE NUMBER</label><input type="text" id="em-pole" value="${r.pole||''}"></div>
+    <div class="ig"><label>SEVERITY</label><select id="em-sev"><option ${r.severity==='Minor'?'selected':''}>Minor</option><option ${r.severity==='Major'?'selected':''}>Major</option><option ${r.severity==='Critical'?'selected':''}>Critical</option></select></div>
+    <div class="grid2">
+      <div class="ig"><label>REPORT DATE</label><input type="date" id="em-rdate" value="${r.reportDate||''}"></div>
+      <div class="ig"><label>FIXED DATE</label><input type="date" id="em-fdate" value="${r.fixedDate||''}"></div>
+    </div>
+    <div class="ig"><label>LOCATION</label><input type="text" id="em-loc" value="${r.location||''}"></div>
+    <div class="ig"><label>REMARKS</label><input type="text" id="em-rem" value="${r.remarks||''}"></div>`;
+  editModalCallback=()=>{
+    r.pole=document.getElementById('em-pole').value;
+    r.severity=document.getElementById('em-sev').value;
+    r.reportDate=document.getElementById('em-rdate').value;
+    r.fixedDate=document.getElementById('em-fdate').value;
+    r.location=document.getElementById('em-loc').value;
+    r.remarks=document.getElementById('em-rem').value;
+    syncAll();renderLeakRec(document.getElementById('rec-content-area'));renderLastLeakDash();
+  };
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');editModalCallback=null;}
+function saveEditModal(){if(editModalCallback)editModalCallback();closeEditModal();}
+
+// ══════════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ══════════════════════════════════════════════════════════
+function exportCurrentRecord(){
+  const type=(document.getElementById('rec-type-sel')||{}).value||'pond';
+  const wb=XLSX.utils.book_new();
+  let data=[], filename='';
+
+  if(type==='pond'){
+    data=[['Date','Level','Max','%','Remarks','Updated By']];
+    Object.values(rec.pond||{}).sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>
+      data.push([r.date,r.level,r.max,r.pct+'%',r.remarks||'',r.by||'']));
+    filename='FWPS_Pond_Records';
+  } else if(type==='pump'){
+    data=[['Date','Time','Pump','Event','Runtime (mins)','Fault','By']];
+    Object.values(rec.pump||{}).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(r=>
+      data.push([r.date,r.time,r.pumpName,r.event,r.runtimeMins||0,r.fault||'',r.by||'']));
+    filename='FWPS_Pump_Records';
+  } else if(type==='operators'){
+    data=[['Date','FW Operators','IW Operators','By']];
+    Object.values(rec.operators||{}).sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>
+      data.push([r.date,(r.fw||[]).filter(o=>o.name).map(o=>o.name+'/'+o.shift).join(', '),(r.iw||[]).filter(o=>o.name).map(o=>o.name+'/'+o.shift).join(', '),r.by||'']));
+    filename='FWPS_Operator_Records';
+  } else if(type==='schedule'){
+    data=[['Date','Morning Zones','Evening Zones','Khaur City Schedule','Khaur Company Schedule','By']];
+    Object.values(rec.schedule||{}).sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>
+      data.push([r.date,(r.morning||[]).map(z=>z.area).join(', '),(r.evening||[]).map(z=>z.area).join(', '),(r.kc||[]).map(z=>z.start+'-'+z.end).join(', '),(r.kkc||[]).map(z=>z.start+'-'+z.end).join(', '),r.by||'']));
+    filename='FWPS_Schedule_Records';
+  } else if(type==='leakage'){
+    data=[['Report Date','Pole','Location','Severity','Status','Fixed Date','Remarks','Added By']];
+    Object.values(lv.leakages||{}).sort((a,b)=>(a.ts||0)-(b.ts||0)).forEach(r=>
+      data.push([r.reportDate,r.pole,r.location,r.severity,r.fixedDate?'Fixed':'Open',r.fixedDate||'',r.remarks||'',r.by||'']));
+    filename='FWPS_Leakage_Records';
+  }
+
+  if(data.length<=1){alert('No data to export.');return;}
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb,ws,'Records');
+  XLSX.writeFile(wb,filename+'_'+todayStr()+'.xlsx');
+}
+
+// ══════════════════════════════════════════════════════════
+// ALERTS
+// ══════════════════════════════════════════════════════════
+function showCriticalAlert(title,msg){
+  const el=document.getElementById('critical-alert');
+  const tel=document.getElementById('critical-alert-title');
+  const mel=document.getElementById('critical-alert-msg');
+  if(el)el.style.display='flex';
+  if(tel)tel.textContent=title;
+  if(mel)mel.textContent=msg;
+  // Play beep
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const beep=(f,t,d)=>{const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;o.type='square';g.gain.setValueAtTime(.1,ctx.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+t+d);o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+d);};
+    beep(880,0,.15);beep(660,.2,.15);beep(880,.4,.3);
+  }catch(e){}
+}
+function dismissCritical(){const el=document.getElementById('critical-alert');if(el)el.style.display='none';}
+
+// ══════════════════════════════════════════════════════════
+// EMPLOYEE / PERMISSION MANAGEMENT
+// ══════════════════════════════════════════════════════════
+
+const ROLE_DEFAULTS = {
+  view:       {tabs:['dash'],sections:[]},
+  operator:   {tabs:['dash'],sections:['s-pond','s-pumps','s-ops']},
+  supervisor: {tabs:['dash','records'],sections:['s-pond','s-pumps','s-ops']},
+  admin:      {tabs:['dash','records','settings'],sections:['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp','s-pwd']},
+  blocked:    {tabs:[],sections:[]},
+};
+
+let permModalDevId = null;
+
+function canAccessTab(tabId){
+  if(!currentUser) return tabId==='dash';
+  if(currentUser.role==='admin') return true;
+  // Get fresh user from Firebase if available
+  const freshUser=Object.values(lv.registeredUsers||{}).find(u=>u.id===currentUser.id||u.phone===currentUser.phone)||currentUser;
+  if(freshUser.blocked) return false;
+  if(freshUser.role==='pending'||!freshUser.role) return tabId==='dash';
+  const perms=freshUser.permissions||ROLE_DEFAULTS[freshUser.role||'pending']||ROLE_DEFAULTS.view;
+  return (perms.tabs||['dash']).includes(tabId);
+}
+
+function canAccessSection(sectionId){
+  if(!currentUser) return false;
+  if(currentUser.role==='admin') return true;
+  const freshUser=Object.values(lv.registeredUsers||{}).find(u=>u.id===currentUser.id||u.phone===currentUser.phone)||currentUser;
+  if(freshUser.blocked) return false;
+  if(freshUser.role==='pending'||!freshUser.role) return false;
+  const perms=freshUser.permissions||ROLE_DEFAULTS[freshUser.role||'pending']||ROLE_DEFAULTS.view;
+  return (perms.sections||[]).includes(sectionId);
+}
+
+// showTab already handles permissions inline - no override needed
+
+// toggleSection handles permissions inline
+
+function showAccessDenied(msg){
+  let el=document.getElementById('access-denied-overlay');
+  if(!el){
+    el=document.createElement('div');el.id='access-denied-overlay';el.className='access-denied';
+    el.innerHTML=['<div class="access-denied-icon">🚫</div>',
+      '<div style="font-size:18px;font-weight:700;color:var(--red);margin-bottom:8px;">Access Denied</div>',
+      '<div style="font-size:13px;color:var(--tx2);margin-bottom:20px;" id="access-denied-msg"></div>',
+      '<button class="btn ghost" style="max-width:160px;" onclick="closeAccessDenied()">Go Back</button>'].join('');
+    document.body.appendChild(el);
+  }
+  const msgEl=document.getElementById('access-denied-msg');if(msgEl)msgEl.textContent=msg;
+  el.style.display='flex';
+}
+
+function applyPermissions(){
+  if(!currentUser) return;
+  if(currentUser.role==='admin'){
+    document.querySelectorAll('.tab').forEach(t=>t.style.display='');
+    return;
+  }
+  const u = Object.values(lv.registeredUsers||{}).find(x=>x.id===currentUser.id||x.phone===currentUser.phone);
+
+  // Check if blocked
+  if(u&&u.blocked){
+    let denied=document.getElementById('perm-blocked-screen');
+    if(!denied){
+      denied=document.createElement('div');
+      denied.id='perm-blocked-screen';
+      denied.className='access-denied';
+      denied.innerHTML='<div class="access-denied-icon">&#x1F6AB;</div>'
+        +'<div style="font-size:18px;font-weight:700;color:var(--red);margin-bottom:8px;">Account Blocked</div>'
+        +'<div style="font-size:13px;color:var(--tx2);margin-bottom:20px;">Your account has been blocked by the administrator.</div>'
+        +'<button class="btn ghost sm" onclick="logoutUser()">Logout</button>';
+      document.body.appendChild(denied);
+    }
+    denied.style.display='flex';
+    document.getElementById('main-hdr').style.display='none';
+    document.getElementById('main-tabs').style.display='none';
+    return;
+  }
+
+  // For registered operators — only hide tabs they cannot access
+  // Use specific tab IDs to avoid hiding other elements
+  const tabsNav = document.getElementById('main-tabs');
+  if(!tabsNav) return;
+  const allTabs = tabsNav.querySelectorAll('.tab');
+  allTabs.forEach(tab=>{
+    const onclick = tab.getAttribute('onclick')||'';
+    let key = '';
+    if(onclick.includes("'records'")) key='records';
+    else if(onclick.includes("'settings'")) key='settings';
+    else if(onclick.includes("'dash'")) key='dash';
+    if(key){
+      tab.style.display = canAccessTab(key) ? '' : 'none';
+    }
+  });
+}
+
+function buildEmployeeList(){
+  const el=document.getElementById('emp-list-container');
+  if(!el)return;
+  const rawUsers=Object.values(lv.registeredUsers||{});
+  if(!rawUsers.length){
+    el.innerHTML='<div class="empty-state">No registered employees yet.<br>Employees register when they first open the app.</div>';
+    return;
+  }
+
+  // Sort: pending first, then active, then blocked
+  // Sort handled in Object.entries forEach below
+
+  const pendingCount=rawUsers.filter(u=>u.role==='pending'||!u.role).length;
+  el.innerHTML='';
+
+  if(pendingCount>0){
+    const banner=document.createElement('div');
+    banner.style.cssText='background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:11px;color:#f59e0b;';
+    banner.innerHTML='⏳ <b>'+pendingCount+' employee'+(pendingCount>1?'s':'')+' waiting for access approval.</b>';
+    el.appendChild(banner);
+  }
+
+  const roleLabel=(r)=>({view:'👁 View Only',operator:'📋 Operator',supervisor:'⚙️ Supervisor',admin:'🔑 Admin',blocked:'🚫 Blocked',pending:'⏳ Awaiting Approval'})[r||'pending']||'⏳ Awaiting Approval';
+  const roleCls=(r)=>({view:'perm-view',operator:'perm-operator',supervisor:'perm-supervisor',admin:'perm-admin',blocked:'perm-blocked',pending:'perm-view'})[r||'pending']||'perm-view';
+
+  const entries=Object.entries(lv.registeredUsers||{});
+  entries.sort((a,b)=>{const ord=(u)=>u.blocked?3:(u.role==='pending'||!u.role)?0:1;return ord(a[1])-ord(b[1]);});
+  entries.forEach(([fbKey,u])=>{
+    // Ensure _fbKey is set on this user for reliable lookups
+    u._fbKey=fbKey;
+    const role=u.role||'pending';
+    const isPending=(role==='pending'||!u.role);
+    const isBlocked=!!u.blocked;
+    const isMe=u.deviceId===currentUser?.deviceId;
+    const regDate=u.ts?new Date(u.ts).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'}):'—';
+    const perms=u.permissions||ROLE_DEFAULTS[role]||ROLE_DEFAULTS.operator;
+
+    // Build card
+    const card=document.createElement('div');
+    card.className='emp-card'+(isBlocked?' blocked':'');
+    card.style.borderColor=isPending?'rgba(245,158,11,.4)':isBlocked?'rgba(239,68,68,.4)':'';
+    if(isPending)card.style.background='rgba(245,158,11,.03)';
+    if(isBlocked)card.style.background='rgba(239,68,68,.03)';
+
+    // Pending banner
+    if(isPending){
+      const pb=document.createElement('div');
+      pb.style.cssText='font-size:10px;font-weight:700;color:#f59e0b;letter-spacing:1px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid rgba(245,158,11,.2);';
+      pb.textContent='⏳ AWAITING ACCESS APPROVAL';
+      card.appendChild(pb);
+    }
+
+    // Main row
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;justify-content:space-between;gap:8px;';
+
+    // Info side
+    const info=document.createElement('div');
+    info.style.cssText='flex:1;min-width:0;';
+    info.innerHTML=
+      '<div class="emp-name">'+escHtml(u.name||'Unknown')+(isMe?' <span style="font-size:9px;color:var(--teal);font-family:var(--fm);">(You — Admin)</span>':'')+'</div>'+
+      '<div style="font-size:10px;color:var(--blue);font-weight:600;margin-bottom:2px;">'+escHtml(u.designation||'—')+'</div>'+
+      '<div class="emp-phone">'+escHtml(u.phone||'—')+' · '+regDate+'</div>'+
+      '<div style="font-size:10px;color:var(--amber);font-family:var(--fm);">PIN: '+(u.pin||'—')+'</div>'+
+      '<div style="margin-top:5px;"><span class="perm-badge '+roleCls(role)+'">'+roleLabel(role)+'</span></div>';
+
+    // Tab chips (for non-pending)
+    if(!isPending){
+      const chips=document.createElement('div');
+      chips.style.cssText='display:flex;gap:3px;flex-wrap:wrap;margin-top:5px;';
+      ['dash','records','settings'].forEach(t=>{
+        const has=(perms.tabs||[]).includes(t);
+        const label=t==='dash'?'Dashboard':t==='records'?'Records':'Settings';
+        const chip=document.createElement('span');
+        chip.style.cssText='font-size:9px;padding:2px 6px;border-radius:8px;background:'+(has?'rgba(34,197,94,.12)':'rgba(100,116,139,.1)')+';color:'+(has?'var(--green)':'var(--tx3)')+';border:1px solid '+(has?'rgba(34,197,94,.3)':'var(--bor)')+';';
+        chip.textContent=label;
+        chips.appendChild(chip);
+      });
+      info.appendChild(chips);
+    }
+    row.appendChild(info);
+
+    // Buttons side — admin can manage all users including themselves
+    {
+      const btns=document.createElement('div');
+      btns.style.cssText='display:flex;flex-direction:column;gap:5px;flex-shrink:0;';
+
+      const mkBtn=(label,bg,border,color,fn)=>{
+        const b=document.createElement('button');
+        b.style.cssText='padding:6px 11px;border:1px solid '+border+';background:'+bg+';color:'+color+';border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;font-family:var(--fh);';
+        b.textContent=label;
+        b.onclick=fn;
+        return b;
+      };
+
+      // Approve button (pending only)
+      if(isPending){
+        btns.appendChild(mkBtn('✓ Approve',
+          'rgba(34,197,94,.15)','rgba(34,197,94,.4)','var(--green)',
+          ()=>doApprove(fbKey)));
+      }
+
+      // Access button
+      btns.appendChild(mkBtn('⚙ Access',
+        'rgba(59,130,246,.1)','rgba(59,130,246,.3)','var(--blue)',
+        ()=>doAccess(fbKey)));
+
+      // Block/Unblock
+      if(isBlocked){
+        btns.appendChild(mkBtn('✓ Unblock',
+          'rgba(34,197,94,.1)','rgba(34,197,94,.3)','var(--green)',
+          ()=>doBlock(fbKey)));
+      } else {
+        btns.appendChild(mkBtn('✕ Block',
+          'rgba(239,68,68,.1)','rgba(239,68,68,.3)','var(--red)',
+          ()=>doBlock(fbKey)));
+      }
+
+      // Remove
+      btns.appendChild(mkBtn('Remove',
+        'var(--bg2)','var(--bor)','var(--tx3)',
+        ()=>doRemove(fbKey)));
+
+      row.appendChild(btns);
+    }
+
+    card.appendChild(row);
+    el.appendChild(card);
+  });
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Button action functions — called directly, no string interpolation
+// Clean duplicate registrations — keep only the latest per phone number
+function cleanDuplicates(){
+  if(!confirm('This will remove duplicate employee entries, keeping only the most recent registration per phone number. Continue?'))return;
+  const byPhone={};
+  // Group by phone
+  Object.entries(lv.registeredUsers||{}).forEach(([key,u])=>{
+    const phone=u.phone||'noPhone_'+key;
+    if(!byPhone[phone]) byPhone[phone]=[];
+    byPhone[phone].push({key, u, ts:u.ts||0});
+  });
+  let removed=0;
+  Object.values(byPhone).forEach(group=>{
+    if(group.length<=1) return;
+    // Sort newest first — keep first, delete rest
+    group.sort((a,b)=>b.ts-a.ts);
+    group.slice(1).forEach(({key})=>{
+      delete lv.registeredUsers[key];
+      dbSet('registeredUsers/'+key, null);  // null = delete in Firebase REST
+      removed++;
+    });
+  });
+  if(removed>0){
+    syncAll();
+    buildEmployeeList();
+    alert('✅ Removed '+removed+' duplicate'+(removed>1?'s':'')+'. Each employee now appears once.');
+  } else {
+    alert('No duplicates found — list is already clean.');
+  }
+}
+
+// Helper: find the Firebase key for a user
+// 'did' can be a Firebase key, a phone number, or an id field value
+function findUserKey(did){
+  if(!did) return null;
+  // Direct key match
+  if(lv.registeredUsers[did]) return did;
+  // Search by _fbKey, id, or phone
+  const entry=Object.entries(lv.registeredUsers||{}).find(([k,u])=>
+    u._fbKey===did || u.id===did || u.phone===did || k===did
+  );
+  return entry ? entry[0] : null;
+}
+
+// Get user by any identifier
+function getUser(did){
+  const key=findUserKey(did);
+  return key ? lv.registeredUsers[key] : null;
+}
+
+function doApprove(did){
+  const key=findUserKey(did);
+  if(!key){alert('Employee not found. Please wait a moment and try again.');return;}
+  const u=lv.registeredUsers[key];
+  if(!u.role||u.role==='pending'){
+    u.role='operator';
+    u.permissions=JSON.parse(JSON.stringify(ROLE_DEFAULTS.operator));
+  }
+  doAccess(did);
+}
+
+function doAccess(did){
+  const key=findUserKey(did);
+  if(!key){
+    // Refresh from Firebase then try again
+    dbGet('registeredUsers').then(data=>{
+      if(data){Object.entries(data).forEach(([k,u])=>{u._fbKey=k;});lv.registeredUsers=data;}
+      const k2=findUserKey(did);
+      if(k2)openPermModal(k2);
+      else alert('Employee not found. Please click Refresh List and try again.');
+    });
+    return;
+  }
+  openPermModal(key);
+}
+
+function doBlock(did){
+  const key=findUserKey(did);
+  if(!key){alert('Employee not found. Try Refresh List first.');return;}
+  const u=lv.registeredUsers[key];
+  if(!u)return;
+  u.blocked=!u.blocked;
+  if(u.blocked){u.prevRole=u.role||'operator';u.role='blocked';}
+  else{u.role=u.prevRole||'operator';u.blocked=false;}
+  // Save just this user's record
+  dbSet('registeredUsers/'+key, u);
+  buildEmployeeList();
+}
+
+function doRemove(did){
+  const key=findUserKey(did);
+  if(!key){alert('Employee not found. Try clicking Refresh List first.');return;}
+  const u=lv.registeredUsers[key];
+  if(!confirm('Remove '+( u?u.name:'this employee')+'? They will need to re-register.'))return;
+  delete lv.registeredUsers[key];
+  // Delete directly from Firebase using REST DELETE method
+  fetch(FBURL+DB_PATH+'/registeredUsers/'+key+'.json',{method:'DELETE'});
+  buildEmployeeList();
+  // Also sync remaining data
+  dbSet('registeredUsers', lv.registeredUsers);
+}
+
+function closeAccessDenied(){const el=document.getElementById('access-denied-overlay');if(el)el.style.display='none';}
+
+
+
+
+
+
+function openPermModal(did){
+  const key=findUserKey(did); const u=key?lv.registeredUsers[key]:null;
+  if(!u){alert('Employee record not found. Please refresh and try again.');return;}
+  permModalDevId=key;  // Always use the Firebase key
+
+  // Fill employee info
+  const nameEl=document.getElementById('perm-emp-name');
+  const phoneEl=document.getElementById('perm-emp-phone');
+  const desigEl=document.getElementById('perm-emp-desig');
+  if(nameEl)nameEl.textContent=u.name||'Unknown';
+  if(desigEl)desigEl.textContent=u.designation||'—';
+  if(phoneEl)phoneEl.textContent=u.phone||'—';
+
+  // Set role selector
+  const role=u.role||'operator';
+  const sel=document.getElementById('perm-level-sel');
+  if(sel){
+    sel.value=role;
+    sel.onchange=function(){
+      updatePermDesc(this.value);
+      applyRoleDefaults(this.value);
+    };
+  }
+  updatePermDesc(role);
+
+  // Set checkboxes based on current permissions
+  const perms=u.permissions||ROLE_DEFAULTS[role]||ROLE_DEFAULTS.operator;
+  const tabs=perms.tabs||[];
+  const sections=perms.sections||[];
+
+  const recCb=document.getElementById('perm-tab-records');
+  const setCb=document.getElementById('perm-tab-settings');
+  if(recCb)recCb.checked=tabs.includes('records');
+  if(setCb)setCb.checked=tabs.includes('settings');
+
+  ['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp'].forEach(s=>{
+    const cb=document.getElementById('perm-'+s);
+    if(cb)cb.checked=sections.includes(s);
+  });
+
+  // Show the modal — bring to front
+  const modal=document.getElementById('perm-modal');
+  if(modal){
+    modal.style.zIndex='9999';
+    modal.classList.add('open');
+  }
+}
+
+function updatePermDesc(role){
+  ['view','operator','supervisor','admin','blocked'].forEach(r=>{
+    const el=document.getElementById('perm-desc-'+r);if(el)el.style.display=r===role?'block':'none';
+  });
+}
+
+function applyRoleDefaults(role){
+  const def=ROLE_DEFAULTS[role]||ROLE_DEFAULTS.operator;
+  const el1=document.getElementById('perm-tab-records');const el2=document.getElementById('perm-tab-settings');
+  if(el1)el1.checked=(def.tabs||[]).includes('records');
+  if(el2)el2.checked=(def.tabs||[]).includes('settings');
+  ['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp'].forEach(s=>{
+    const el=document.getElementById('perm-'+s);
+    if(el)el.checked=(def.sections||[]).includes(s);
+  });
+}
+
+function savePermissions(){
+  // Re-resolve key in case it changed
+  const resolvedKey=findUserKey(permModalDevId)||permModalDevId;
+  const u=lv.registeredUsers[resolvedKey];
+  if(!u){alert('Could not save — employee not found. Please close and try again.');return;}
+  permModalDevId=resolvedKey; // ensure we use the correct key
+  const sel=document.getElementById('perm-level-sel');
+  const role=sel?sel.value:'operator';
+  u.role=role;u.blocked=role==='blocked';
+  const tabs=['dash'];
+  const el1=document.getElementById('perm-tab-records');const el2=document.getElementById('perm-tab-settings');
+  if(el1&&el1.checked)tabs.push('records');
+  if(el2&&el2.checked)tabs.push('settings');
+  const sections=[];
+  ['s-pond','s-pumps','s-ops','s-sch','s-leak','s-emp'].forEach(s=>{
+    const el=document.getElementById('perm-'+s);if(el&&el.checked)sections.push(s);
+  });
+  u.permissions={tabs,sections};
+  syncAll();
+  closePermModal();
+  buildEmployeeList();
+  // Short delay then show confirmation
+  setTimeout(()=>{
+    alert('✅ Access permissions saved for '+u.name+'\n\nRole: '+role+'\nTabs: '+tabs.join(', '));
+  },100);
+}
+
+function closePermModal(){document.getElementById('perm-modal').classList.remove('open');permModalDevId=null;}
+
+// ══ USER MENU ══
+function toggleUserMenu(){
+  const d=document.getElementById('user-dropdown');
+  if(d)d.style.display=d.style.display==='none'?'block':'none';
+}
+document.addEventListener('click',e=>{
+  const btn=document.getElementById('user-menu-btn');
+  const dd=document.getElementById('user-dropdown');
+  if(dd&&btn&&!btn.contains(e.target)&&!dd.contains(e.target))dd.style.display='none';
+});
+function updateUserMenu(){
+  if(!currentUser)return;
+  const name=currentUser.name||'User';
+  const initials=name.split(' ').map(w=>w[0]).join('').toUpperCase().substr(0,2);
+  const roleMap={admin:'Admin',pending:'Pending Approval',operator:'Operator',supervisor:'Supervisor'};
+  const av=document.getElementById('user-avatar');if(av)av.textContent=initials;
+  const mn=document.getElementById('user-menu-name');if(mn)mn.textContent=name.split(' ')[0];
+  const dn=document.getElementById('user-dropdown-name');if(dn)dn.textContent=name;
+  const dp=document.getElementById('user-dropdown-phone');if(dp)dp.textContent=currentUser.phone||'';
+  const dr=document.getElementById('user-dropdown-role');if(dr)dr.textContent=roleMap[currentUser.role]||currentUser.role||'User';
+}
+
+// ══ CHANGE PIN (while logged in) ══
+function showChangePinModal(){
+  const el=document.getElementById('change-pin-modal');
+  if(el)el.classList.add('open');
+  ['chg-current-pin','chg-new-pin1','chg-new-pin2'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const errEl=document.getElementById('chg-pin-err');if(errEl)errEl.textContent='';
+}
+function saveNewPin(){
+  const curr=(document.getElementById('chg-current-pin')||{}).value.trim();
+  const p1=(document.getElementById('chg-new-pin1')||{}).value.trim();
+  const p2=(document.getElementById('chg-new-pin2')||{}).value.trim();
+  const errEl=document.getElementById('chg-pin-err');
+  if(currentUser.role!=='admin'){
+    if(String(currentUser.pin)!==String(curr)){if(errEl)errEl.textContent='Current PIN incorrect.';return;}
+  }
+  if(!/^[0-9]{4}$/.test(p1)){if(errEl)errEl.textContent='New PIN must be 4 digits.';return;}
+  if(p1!==p2){if(errEl)errEl.textContent='PINs do not match.';return;}
+  if(errEl)errEl.textContent='';
+  currentUser.pin=p1;
+  if(currentUser.id&&currentUser.id!=='admin'){
+    lv.registeredUsers[currentUser.id]=currentUser;
+    dbSet('registeredUsers/'+currentUser.id,currentUser);
+  }
+  localStorage.setItem('fwps_session',JSON.stringify({uid:currentUser.id,phone:currentUser.phone,name:currentUser.name,role:currentUser.role}));
+  document.getElementById('change-pin-modal').classList.remove('open');
+  alert('✅ PIN changed successfully!');
+}
+
+// ══ FORGOT PIN ══
+function showForgotPin(){
+  document.getElementById('auth-step2-login').style.display='none';
+  document.getElementById('forgot-pin-panel').style.display='block';
+  const user=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+  const nameEl=document.getElementById('forgot-name-display');
+  const phoneEl=document.getElementById('forgot-phone-display');
+  if(nameEl)nameEl.textContent=user?user.name:'—';
+  if(phoneEl)phoneEl.textContent=pendingPhone||'—';
+  document.getElementById('forgot-request-area').style.display='block';
+  document.getElementById('forgot-code-area').style.display='none';
+  const errEl=document.getElementById('reset-err');if(errEl)errEl.textContent='';
+}
+function backToLoginPin(){
+  document.getElementById('forgot-pin-panel').style.display='none';
+  document.getElementById('auth-step2-login').style.display='block';
+}
+function requestPinReset(){
+  const user=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+  if(!user){alert('User not found. Please go back and enter your number again.');return;}
+  const resetCode=String(Math.floor(100000+Math.random()*900000));
+  const req={userId:user.id,userName:user.name,phone:user.phone,code:resetCode,requestedAt:new Date().toISOString(),status:'pending',ts:Date.now()};
+  if(!lv.pinResetRequests)lv.pinResetRequests={};
+  lv.pinResetRequests[user.id]=req;
+  dbSet('pinResetRequests/'+user.id,req);
+  document.getElementById('forgot-request-area').style.display='none';
+  document.getElementById('forgot-code-area').style.display='block';
+}
+function verifyResetCode(){
+  const code=(document.getElementById('reset-code-inp')||{}).value.trim();
+  const p1=(document.getElementById('reset-new-pin1')||{}).value.trim();
+  const p2=(document.getElementById('reset-new-pin2')||{}).value.trim();
+  const errEl=document.getElementById('reset-err');
+  if(!code){if(errEl)errEl.textContent='Enter the reset code from Admin.';return;}
+  if(!/^[0-9]{4}$/.test(p1)){if(errEl)errEl.textContent='New PIN must be 4 digits.';return;}
+  if(p1!==p2){if(errEl)errEl.textContent='PINs do not match.';return;}
+  const user=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
+  if(!user){if(errEl)errEl.textContent='User not found.';return;}
+  const req=lv.pinResetRequests&&lv.pinResetRequests[user.id];
+  if(!req||req.status!=='pending'){if(errEl)errEl.textContent='No active reset request. Please request again.';return;}
+  if(req.code!==code){if(errEl)errEl.textContent='Incorrect code. Check with Admin.';return;}
+  user.pin=p1;
+  lv.registeredUsers[user.id]=user;
+  dbSet('registeredUsers/'+user.id,user);
+  req.status='used';
+  dbSet('pinResetRequests/'+user.id,req);
+  if(errEl)errEl.textContent='';
+  alert('✅ PIN reset! You can now login with your new PIN.');
+  document.getElementById('forgot-pin-panel').style.display='none';
+  document.getElementById('auth-step2-login').style.display='block';
+  const pinEl=document.getElementById('login-pin');if(pinEl)pinEl.value='';
+}
+
+// ══ ADMIN: PIN reset requests in employee management ══
+// Track last known count of pending reset requests to detect new ones
+let _lastResetReqCount = 0;
+
+function playResetRequestTone(){
+  // Only play for admin
+  if(!currentUser||currentUser.role!=='admin') return;
+  try{
+    const ctx = new(window.AudioContext||window.webkitAudioContext)();
+    // Pleasant 3-note alert tone: notification style
+    const notes = [
+      {freq:880, start:0,    dur:0.15},
+      {freq:1100,start:0.18, dur:0.15},
+      {freq:1320,start:0.36, dur:0.25},
+    ];
+    notes.forEach(n=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = n.freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + n.start);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + n.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + n.start + n.dur);
+      osc.start(ctx.currentTime + n.start);
+      osc.stop(ctx.currentTime + n.start + n.dur + 0.05);
+    });
+    // Repeat once after 0.8s
+    setTimeout(()=>{
+      try{
+        const ctx2 = new(window.AudioContext||window.webkitAudioContext)();
+        notes.forEach(n=>{
+          const osc=ctx2.createOscillator();const gain=ctx2.createGain();
+          osc.connect(gain);gain.connect(ctx2.destination);
+          osc.type='sine';osc.frequency.value=n.freq;
+          gain.gain.setValueAtTime(0,ctx2.currentTime+n.start);
+          gain.gain.linearRampToValueAtTime(0.18,ctx2.currentTime+n.start+0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001,ctx2.currentTime+n.start+n.dur);
+          osc.start(ctx2.currentTime+n.start);osc.stop(ctx2.currentTime+n.start+n.dur+0.05);
+        });
+      }catch(e){}
+    }, 800);
+  }catch(e){ console.log('Audio error:', e); }
+}
+
+function renderPinResetRequests(){
+  const el=document.getElementById('pin-reset-requests');
+  const list=document.getElementById('pin-reset-list');
+  if(!el||!list)return;
+
+  const reqs=Object.values(lv.pinResetRequests||{}).filter(r=>r.status==='pending');
+
+  if(!reqs.length){
+    el.style.display='none';
+    _lastResetReqCount=0;
+    return;
+  }
+
+  // Play tone if admin and a NEW request appeared since last render
+  const newCount = reqs.length;
+  if(newCount > _lastResetReqCount && currentUser && currentUser.role==='admin'){
+    playResetRequestTone();
+  }
+  _lastResetReqCount = newCount;
+
+  el.style.display='block';
+  list.innerHTML=reqs.map(r=>'<div style="background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+    +'<div><div style="font-size:12px;font-weight:600;">'+escHtml(r.userName||'—')+'</div>'
+    +'<div style="font-size:10px;color:var(--tx3);font-family:var(--fm);">'+escHtml(r.phone||'')+'</div>'
+    +'<div style="font-size:10px;color:var(--tx3);">'+(r.requestedAt?r.requestedAt.slice(0,16).replace('T',' '):'')+'</div></div>'
+    +'<div style="text-align:center;">'
+    +'<div style="font-family:var(--fm);font-size:22px;font-weight:700;color:var(--amber);letter-spacing:4px;">'+r.code+'</div>'
+    +'<div style="font-size:9px;color:var(--tx3);">Share via WhatsApp →</div></div>'
+    +'</div>').join('');
+}
+
+// Also poll for new reset requests every 15 seconds (even when admin is not on settings tab)
+setInterval(()=>{
+  if(!currentUser||currentUser.role!=='admin') return;
+  dbGet('pinResetRequests').then(data=>{
+    if(!data) return;
+    lv.pinResetRequests = data;
+    const pending = Object.values(data).filter(r=>r.status==='pending');
+    if(pending.length > _lastResetReqCount){
+      // New request came in — play tone and show notification badge
+      playResetRequestTone();
+      _lastResetReqCount = pending.length;
+      // Show a subtle toast notification
+      showResetToast(pending[pending.length-1]);
+    }
+    // Re-render if settings tab is open
+    renderPinResetRequests();
+  }).catch(()=>{});
+}, 15000);
+
+function showResetToast(req){
+  let toast = document.getElementById('reset-toast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'reset-toast';
+    toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid rgba(245,158,11,.5);border-radius:10px;padding:10px 16px;z-index:9999;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);max-width:320px;';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = '<span style="font-size:18px;">🔑</span>'
+    + '<div><div style="font-size:12px;font-weight:700;color:var(--amber);">PIN Reset Request</div>'
+    + '<div style="font-size:11px;color:var(--tx2);">' + escHtml(req.userName||'') + ' needs a reset code</div>'
+    + '<div style="font-size:10px;color:var(--tx3);">Check Settings → Employee Management</div></div>'
+    + '<button id="rtc" style="margin-left:auto;background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:14px;">&#x2715;</button>';
+  const cb=toast.querySelector('#reset-toast-close');
+  if(cb)cb.onclick=()=>toast.style.display='none';
+  const rtcBtn=toast.querySelector('#rtc');if(rtcBtn)rtcBtn.onclick=()=>{toast.style.display='none';};
+  toast.style.display = 'flex';
+  // Auto-hide after 10 seconds
+  setTimeout(()=>{ if(toast)toast.style.display='none'; }, 10000);
+}
+
+// ══ GIST CONFIG ══
+function saveGistConfig(){
+  const token=(document.getElementById('gist-token-inp')||{}).value.trim();
+  const gistId=(document.getElementById('gist-id-inp')||{}).value.trim();
+  const err=document.getElementById('gist-setup-err');
+  if(!token){if(err)err.textContent='Enter your GitHub Personal Access Token';return;}
+  if(!gistId){if(err)err.textContent='Enter your Gist ID';return;}
+  if(err)err.textContent='Testing connection…';
+
+  // Test the connection
+  fetch('https://api.github.com/gists/'+gistId,{
+    headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'},
+    signal:AbortSignal.timeout(10000)
+  }).then(async r=>{
+    if(!r.ok){if(err)err.textContent='❌ Connection failed ('+r.status+'). Check token and Gist ID.';return;}
+    const gist=await r.json();
+    // Save config
+    localStorage.setItem('fwps_gist_id',gistId);
+    localStorage.setItem('fwps_gist_token',token);
+    GIST_ID=gistId;
+    GIST_TOKEN=token;
+    if(err){err.style.color='var(--green)';err.textContent='✅ Connected! Syncing data…';}
+    const cfg=document.getElementById('gist-current-config');
+    if(cfg)cfg.textContent='Gist: '+gistId.substr(0,8)+'… | Token: configured';
+    // Initial sync
+    startFirebaseSync();
+  }).catch(()=>{
+    if(err)err.textContent='❌ Network error. Check your connection.';
+  });
+}
+
+function updateGistSetupUI(){
+  const el=document.getElementById('gist-current-config');
+  if(!el)return;
+  if(GIST_ID){
+    el.textContent='✅ Connected to Gist: '+GIST_ID.substr(0,8)+'…';
+    el.style.color='var(--green)';
+    // Pre-fill inputs
+    const ti=document.getElementById('gist-token-inp');const gi=document.getElementById('gist-id-inp');
+    if(ti&&GIST_TOKEN)ti.value=GIST_TOKEN;
+    if(gi&&GIST_ID)gi.value=GIST_ID;
+  } else {
+    el.textContent='Not configured — app works offline only';
+    el.style.color='var(--tx3)';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// START
+// ══════════════════════════════════════════════════════════
+checkLogin();
+</script>
+<script>
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});}
+</script>
+</body>
+</html>
