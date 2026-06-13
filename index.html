@@ -909,7 +909,6 @@ let GIST_TOKEN=_dh;
 function loadDbConfig(){return Promise.resolve();}
 const GIST_FILENAME = 'fwps_data.json';
 let gistConnected = false;
-let _lastGistEtag = '';
 let _cachedGistData = null;
 
 function isGistConfigured(){
@@ -917,35 +916,47 @@ function isGistConfigured(){
 }
 
 async function dbGet(path){
-  if(!isGistConfigured()) return getLocalPath(path);
+  if(!GIST_ID||!GIST_TOKEN) return getLocalPath(path);
   try{
-    const headers = {
-      'Authorization': 'token ' + GIST_TOKEN,
-      'Accept': 'application/vnd.github.v3+json',
-      'Cache-Control': 'no-cache'
-    };
-    if(_lastGistEtag) headers['If-None-Match'] = _lastGistEtag;
-    const r = await fetch('https://api.github.com/gists/' + GIST_ID, {
-      headers, signal: AbortSignal.timeout(10000)
+    const r = await fetch('https://api.github.com/gists/'+GIST_ID, {
+      headers:{
+        'Authorization':'token '+GIST_TOKEN,
+        'Accept':'application/vnd.github.v3+json',
+        'Cache-Control':'no-cache, no-store'
+      },
+      cache:'no-store',
+      signal:AbortSignal.timeout(15000)
     });
-    if(r.status === 304) return getLocalPath(path); // not modified
-    if(!r.ok){ gistConnected=false; return getLocalPath(path); }
-    const etag = r.headers.get('etag');
-    if(etag) _lastGistEtag = etag;
+    if(!r.ok){
+      console.warn('Gist GET failed:',r.status);
+      gistConnected=false;
+      return getLocalPath(path);
+    }
     const gist = await r.json();
-    const content = gist.files && gist.files[GIST_FILENAME] && gist.files[GIST_FILENAME].content;
-    if(!content) return null;
+    const content = gist.files&&gist.files[GIST_FILENAME]&&gist.files[GIST_FILENAME].content;
+    if(!content){ return getLocalPath(path); }
     const data = JSON.parse(content);
     _cachedGistData = data;
     gistConnected = true;
-    setSyncStatus('ok');
-    // If path is empty return all, otherwise navigate path
-    if(!path || path === '') return data;
+    // Cache to localStorage for offline use
+    try{
+      localStorage.setItem('fwps_lv', JSON.stringify({
+        pond:data.pond, pumps:data.pumps, operators:data.operators,
+        schedule:data.schedule, leakages:data.leakages,
+        registeredUsers:data.registeredUsers, pinResetRequests:data.pinResetRequests
+      }));
+      if(data.rec) localStorage.setItem('fwps_rec', JSON.stringify(data.rec));
+    }catch(e){}
+    if(!path||path==='') return data;
     const parts = path.split('/').filter(Boolean);
     let cur = data;
-    for(const p of parts){ if(cur==null) return null; cur = cur[p]; }
+    for(const p of parts){ if(cur==null) return null; cur=cur[p]; }
     return cur;
-  }catch(e){ gistConnected=false; setSyncStatus('err'); return getLocalPath(path); }
+  }catch(e){
+    console.warn('Gist dbGet error:',e);
+    gistConnected=false;
+    return getLocalPath(path);
+  }
 }
 
 function getLocalPath(path){
@@ -1072,10 +1083,7 @@ function showRegPanel(){
   document.getElementById('reg-panel').style.display='block';
   document.getElementById('admin-login-panel').style.display='none';
 }
-function showAdminLogin(){
-  document.getElementById('reg-panel').style.display='none';
-  document.getElementById('admin-login-panel').style.display='block';
-}
+// showAdminLogin defined below
 
 // registerUser replaced by completeRegistration
 
@@ -1274,6 +1282,7 @@ function completeRegistration(){
 
   lv.registeredUsers[key] = userData;
   dbSet('registeredUsers/'+key, userData);
+  syncAll(); // Push full data to Gist
 
   // Save session — keyed by stable phone key, never changes
   currentUser = userData;
@@ -1530,8 +1539,6 @@ function startClock(){
 }
 
 function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function t2m(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
-function m2t(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
 function nowMins(){const n=new Date();return n.getHours()*60+n.getMinutes();}
 
 // ══════════════════════════════════════════════════════════
@@ -1590,9 +1597,9 @@ function renderPondDash(){
   if(maxEl)maxEl.textContent=p.max||"10'0\"";
   if(updEl)updEl.textContent=p.updated?'Updated: '+p.updated:'';
   const pct=p.pct||0;
-  if(pctEl)pctEl.textContent=pct+'%';
+  if(pctEl)pctEl.textContent=pct>0?pct+'%':'—';
   if(barEl){
-    barEl.style.width=pct+'%';
+    barEl.style.width=Math.max(pct,2)+'%';
     barEl.className='pond-bar-fill'+(pct<30?' critical':pct<60?' low':'');
   }
 }
@@ -2102,13 +2109,21 @@ function buildPondSettings(){
   if(el2)el2.value=lv.pond.max||"10'0\"";
 }
 
-function parseFI(s){const m=(s||'').match(/(\d+)'(\d+)"/);return m?parseInt(m[1])*12+parseInt(m[2]):0;}
+function parseFI(s){
+  if(!s||s.trim()==='') return 0;
+  const m=(s||'').match(/(\d+)[''](\d+)["\"]/);
+  if(m) return parseInt(m[1])*12+parseInt(m[2]);
+  // Try feet only
+  const m2=(s||'').match(/(\d+)['']/);
+  if(m2) return parseInt(m2[1])*12;
+  return parseFloat(s)||0;
+}
 
 function savePondLevel(){
   const level=document.getElementById('set-pond-level').value;
   const max=document.getElementById('set-pond-max').value;
   const rem=document.getElementById('set-pond-rem').value;
-  const lIn=parseFI(level),mIn=parseFI(max);
+  const lIn=parseFI(level),mIn=parseFI(max)||120; // default 10ft=120in
   const pct=mIn>0?Math.min(100,Math.round(lIn/mIn*100)):0;
   const now=new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
   lv.pond={level,max,pct,updated:todayStr()+' '+now,remarks:rem};
@@ -2125,6 +2140,10 @@ function savePondLevel(){
 // PUMP SETTINGS
 function buildPumpSettings(){
   const el=document.getElementById('pump-settings-list');if(!el)return;
+  if(!lv.pumps||lv.pumps.length===0){
+    el.innerHTML='<div style="text-align:center;padding:16px;color:var(--tx3);font-size:12px;">No pumps configured. Click Add FW/IW Pump below.</div>';
+    return;
+  }
   const FAULT_OPTS=['','Motor Problem','Pump Mechanical Fault','Electrical Tripping','Thunderstorm / Lightning','Power Failure','Routine Maintenance','Other'];
   el.innerHTML=lv.pumps.map((p,i)=>`
     <div style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:8px;border:1px solid ${p.type==='fw'?'rgba(34,197,94,.2)':'rgba(20,184,166,.2)'};">
@@ -2229,8 +2248,11 @@ function buildOpsSettings(){
         </div>
       </div>`).join('');
   };
-  build('fw-ops-settings',lv.operators.fw||[]);
-  build('iw-ops-settings',lv.operators.iw||[]);
+  // Ensure at least 1 slot shown even if empty
+  const fwOps = lv.operators.fw&&lv.operators.fw.length>0 ? lv.operators.fw : [{name:'',shift:'Morning'}];
+  const iwOps = lv.operators.iw&&lv.operators.iw.length>0 ? lv.operators.iw : [{name:'',shift:'Morning'}];
+  build('fw-ops-settings', fwOps);
+  build('iw-ops-settings', iwOps);
 }
 
 function updateOp(contId,i,field,val){
@@ -3309,8 +3331,9 @@ function doBlock(did){
   u.blocked=!u.blocked;
   if(u.blocked){u.prevRole=u.role||'operator';u.role='blocked';}
   else{u.role=u.prevRole||'operator';u.blocked=false;}
-  // Save just this user's record
+  // Save to Gist
   dbSet('registeredUsers/'+key, u);
+  syncAll();
   buildEmployeeList();
 }
 
