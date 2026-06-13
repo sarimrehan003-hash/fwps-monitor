@@ -624,9 +624,11 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
       <div class="settings-body" id="s-ops">
         <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:8px;">Fresh Water Station</div>
         <div id="fw-ops-settings"></div>
-        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Ikhlas Water Station</div>
+        <button onclick="addOperatorSlot('fw')" style="width:100%;padding:6px;background:transparent;border:1px dashed var(--bor);color:var(--tx3);border-radius:6px;cursor:pointer;font-size:11px;margin-bottom:8px;">+ Add FW Operator</button>
+        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:6px 0 8px;">Ikhlas Water Station</div>
         <div id="iw-ops-settings"></div>
-        <button class="btn green" onclick="saveOperators()" style="margin-top:8px;">💾 Save Operators</button>
+        <button onclick="addOperatorSlot('iw')" style="width:100%;padding:6px;background:transparent;border:1px dashed var(--bor);color:var(--tx3);border-radius:6px;cursor:pointer;font-size:11px;margin-bottom:8px;">+ Add IW Operator</button>
+        <button class="btn green" onclick="saveOperators()" style="margin-top:4px;">💾 Save Operators</button>
       </div>
     </div>
 
@@ -916,8 +918,11 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
 // Database configuration — assembled at runtime
 const _a='ghp_syw3AI',_b='yAXwHENTff',_c='uVXB12JsXc',_d='a5Xn1Qc7oX';
 const _e='278d1164',_f='b7ab858a',_g='b420282c',_h='02543aaa';
-let GIST_ID = localStorage.getItem('fwps_gist_id') || (_e+_f+_g+_h);
-let GIST_TOKEN = localStorage.getItem('fwps_gist_token') || (_a+_b+_c+_d);
+// Always set defaults into localStorage so they persist across sessions
+if(!localStorage.getItem('fwps_gist_id')) localStorage.setItem('fwps_gist_id',_e+_f+_g+_h);
+if(!localStorage.getItem('fwps_gist_token')) localStorage.setItem('fwps_gist_token',_a+_b+_c+_d);
+let GIST_ID = localStorage.getItem('fwps_gist_id');
+let GIST_TOKEN = localStorage.getItem('fwps_gist_token');
 const GIST_FILENAME = 'fwps_data.json';
 let gistConnected = false;
 let _lastGistEtag = '';
@@ -1375,9 +1380,12 @@ function buildDefaultPumps(){
 }
 
 function buildDefaultOps(){
-  if(lv.operators.fw.length) return;
-  lv.operators.fw=[{name:'',shift:'Morning'},{name:'',shift:'Evening'},{name:'',shift:'Night'}];
-  lv.operators.iw=[{name:'',shift:'Morning'},{name:'',shift:'Evening'},{name:'',shift:'Night'}];
+  if(!lv.operators) lv.operators={fw:[],iw:[]};
+  if(!lv.operators.fw) lv.operators.fw=[];
+  if(!lv.operators.iw) lv.operators.iw=[];
+  // Always ensure at least 3 operator slots
+  while(lv.operators.fw.length < 3) lv.operators.fw.push({name:'',shift:'Morning'});
+  while(lv.operators.iw.length < 3) lv.operators.iw.push({name:'',shift:'Morning'});
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2045,6 +2053,8 @@ function toggleSection(id){
 
 function buildSettingsForms(){
   if(!settingsUnlocked)return;
+  buildDefaultPumps();
+  buildDefaultOps();
   renderPinResetRequests();
   updateGistSetupUI();
   buildPondSettings();
@@ -2079,7 +2089,8 @@ function savePondLevel(){
   rec.pond[key]={date:todayStr(),level,max,pct,remarks:rem,by:currentUser?.name||'',ts:Date.now()};
   syncAll();
   renderPondDash();
-  alert('✅ Pond level saved!');
+  renderDashboard();
+  alert('✅ Pond level saved! Dashboard updated.');
 }
 
 // PUMP SETTINGS
@@ -2195,8 +2206,14 @@ function buildOpsSettings(){
 
 function updateOp(contId,i,field,val){
   const isfw=contId.startsWith('fw');
-  if(isfw)lv.operators.fw[i][field]=val;
-  else lv.operators.iw[i][field]=val;
+  if(isfw){if(!lv.operators.fw[i])lv.operators.fw[i]={name:'',shift:'Morning'};lv.operators.fw[i][field]=val;}
+  else{if(!lv.operators.iw[i])lv.operators.iw[i]={name:'',shift:'Morning'};lv.operators.iw[i][field]=val;}
+}
+
+function addOperatorSlot(type){
+  if(type==='fw') lv.operators.fw.push({name:'',shift:'Morning'});
+  else lv.operators.iw.push({name:'',shift:'Morning'});
+  buildOpsSettings();
 }
 
 function saveOperators(){
