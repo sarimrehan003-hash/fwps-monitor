@@ -639,14 +639,46 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <span style="font-size:10px;color:var(--tx3);" id="s-sch-arrow">▼</span>
       </div>
       <div class="settings-body" id="s-sch">
-        <div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:8px;">FWPS Morning Shift</div>
-        <div id="sch-morning-edit"></div>
-        <div style="font-size:11px;font-weight:600;color:var(--blue);margin:10px 0 8px;">FWPS Evening Shift</div>
-        <div id="sch-evening-edit"></div>
-        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Community — Khaur City</div>
-        <div id="sch-kc-edit"></div>
-        <div style="font-size:11px;font-weight:600;color:var(--teal);margin:10px 0 8px;">Community — Khaur Company</div>
-        <div id="sch-kkc-edit"></div>
+        <!-- Morning Shift sub-section -->
+        <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
+          <div onclick="toggleSubSection('sch-morning-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(59,130,246,.08);">
+            <span style="font-size:12px;font-weight:700;color:var(--blue);">☀️ FWPS Morning Shift</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-morning-wrap-arrow">▼</span>
+          </div>
+          <div id="sch-morning-wrap" style="padding:10px;display:none;">
+            <div id="sch-morning-edit"></div>
+          </div>
+        </div>
+        <!-- Evening Shift sub-section -->
+        <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
+          <div onclick="toggleSubSection('sch-evening-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(59,130,246,.08);">
+            <span style="font-size:12px;font-weight:700;color:var(--blue);">🌆 FWPS Evening Shift</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-evening-wrap-arrow">▼</span>
+          </div>
+          <div id="sch-evening-wrap" style="padding:10px;display:none;">
+            <div id="sch-evening-edit"></div>
+          </div>
+        </div>
+        <!-- Khaur City sub-section -->
+        <div style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
+          <div onclick="toggleSubSection('sch-kc-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(20,184,166,.08);">
+            <span style="font-size:12px;font-weight:700;color:var(--teal);">🏘️ Community — Khaur City</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-kc-wrap-arrow">▼</span>
+          </div>
+          <div id="sch-kc-wrap" style="padding:10px;display:none;">
+            <div id="sch-kc-edit"></div>
+          </div>
+        </div>
+        <!-- Khaur Company sub-section -->
+        <div style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
+          <div onclick="toggleSubSection('sch-kkc-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(20,184,166,.08);">
+            <span style="font-size:12px;font-weight:700;color:var(--teal);">🏭 Community — Khaur Company</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-kkc-wrap-arrow">▼</span>
+          </div>
+          <div id="sch-kkc-wrap" style="padding:10px;display:none;">
+            <div id="sch-kkc-edit"></div>
+          </div>
+        </div>
         <!-- Rotation Start Date -->
         <div style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:var(--r2);padding:12px;margin-top:10px;">
           <div style="font-size:11px;font-weight:700;color:var(--teal);margin-bottom:8px;letter-spacing:.5px;">📅 ROTATION DATES CONTROL</div>
@@ -2406,6 +2438,15 @@ function resetPPFDaily(){
   }
 }
 
+function toggleSubSection(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const open=el.style.display==='none'||el.style.display==='';
+  el.style.display=open?'block':'none';
+  const arrow=document.getElementById(id+'-arrow');
+  if(arrow)arrow.textContent=open?'▲':'▼';
+}
+
 function saveRotationStart(){
   const v=document.getElementById('rotation-start-inp').value;
   if(!v){alert('Please select a start date.');return;}
@@ -2484,6 +2525,12 @@ function buildScheduleSettings(){
   const autoToggle=document.getElementById('auto-control-toggle');
   if(autoToggle)autoToggle.checked=!!lv.schedule.autoControl;
   updateAutoControlUI();
+  // Auto-open morning wrap so user sees content immediately
+  ['sch-morning-wrap','sch-evening-wrap','sch-kc-wrap','sch-kkc-wrap'].forEach(id=>{
+    const el=document.getElementById(id);
+    const arrow=document.getElementById(id+'-arrow');
+    if(el&&el.style.display==='none'){el.style.display='block';if(arrow)arrow.textContent='▲';}
+  });
   // Load rotation start date
   const rotInp=document.getElementById('rotation-start-inp');
   if(rotInp&&lv.schedule.rotationStart){
