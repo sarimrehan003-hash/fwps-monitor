@@ -581,7 +581,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
   <div id="settings-content" style="display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
       <div id="settings-user-context" style="display:none;font-size:11px;padding:6px 10px;background:var(--bg3);border-radius:8px;"></div>
-      <button class="btn ghost sm" onclick="lockSettings()" style="margin-left:auto;">🔒 Lock</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="font-size:11px;color:var(--tx2);">DB: <span id="settings-sync-info" style="color:var(--green);">Checking...</span></div>
+        <button class="btn ghost sm" onclick="lockSettings()">🔒 Lock</button>
+      </div>
     </div>
 
     <!-- 1. POND LEVEL -->
@@ -591,12 +594,74 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <span style="font-size:10px;color:var(--tx3);" id="s-pond-arrow">▼</span>
       </div>
       <div class="settings-body" id="s-pond">
-        <div class="grid2">
-          <div class="ig"><label>CURRENT LEVEL (Feet'Inch")</label><input type="text" id="set-pond-level" placeholder="7'6&quot;"></div>
-          <div class="ig"><label>MAX CAPACITY</label><input type="text" id="set-pond-max" placeholder="10'0&quot;"></div>
+        <!-- Mode Toggle -->
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:var(--r2);padding:10px 12px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--tx);">Pond Level Mode</div>
+            <div style="font-size:10px;color:var(--tx3);margin-top:2px;" id="pond-mode-desc">Manual: Enter level manually</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--tx3);">Manual</span>
+            <label class="tog">
+              <input type="checkbox" id="pond-auto-toggle" onchange="togglePondMode(this.checked)">
+              <span class="tog-sl"></span>
+            </label>
+            <span style="font-size:11px;color:var(--cyan);">Auto</span>
+          </div>
         </div>
-        <div class="ig"><label>REMARKS</label><input type="text" id="set-pond-rem" placeholder="Any remarks..."></div>
-        <button class="btn green" onclick="savePondLevel()">💾 Save Pond Level</button>
+
+        <!-- MANUAL MODE -->
+        <div id="pond-manual-section">
+          <div class="grid2">
+            <div class="ig"><label>CURRENT LEVEL (Feet'Inch")</label><input type="text" id="set-pond-level" placeholder="7'6&quot;"></div>
+            <div class="ig"><label>MAX CAPACITY (Feet'Inch")</label><input type="text" id="set-pond-max" placeholder="10'0&quot;"></div>
+          </div>
+          <div class="ig"><label>REMARKS</label><input type="text" id="set-pond-rem" placeholder="Any remarks..."></div>
+          <button class="btn green" onclick="savePondLevel()">💾 Save Pond Level</button>
+        </div>
+
+        <!-- AUTO CALCULATION MODE -->
+        <div id="pond-auto-section" style="display:none;">
+          <div style="background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.2);border-radius:var(--r2);padding:10px;margin-bottom:10px;">
+            <div style="font-size:11px;color:var(--tx2);line-height:1.8;">
+              Auto mode calculates level based on pump running time and distribution rates. Set the rates below.
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="ig">
+              <label>POND CAPACITY (Litres)</label>
+              <input type="number" id="pond-capacity-l" placeholder="e.g. 500000" min="0">
+              <div style="font-size:10px;color:var(--tx3);margin-top:3px;">Total pond capacity in litres</div>
+            </div>
+            <div class="ig">
+              <label>CURRENT VOLUME (Litres)</label>
+              <input type="number" id="pond-current-l" placeholder="e.g. 350000" min="0">
+              <div style="font-size:10px;color:var(--tx3);margin-top:3px;">Current water in pond</div>
+            </div>
+            <div class="ig">
+              <label>INFLOW RATE (L/min)</label>
+              <input type="number" id="pond-inflow" placeholder="e.g. 757" min="0">
+              <div style="font-size:10px;color:var(--tx3);margin-top:3px;">Ikhlas pump inflow (default: 757 L/min per pump)</div>
+            </div>
+            <div class="ig">
+              <label>OUTFLOW RATE (L/min)</label>
+              <input type="number" id="pond-outflow" placeholder="e.g. 379" min="0">
+              <div style="font-size:10px;color:var(--tx3);margin-top:3px;">During distribution</div>
+            </div>
+          </div>
+          <div class="ig">
+            <label>MAX CAPACITY (Feet'Inch" for display)</label>
+            <input type="text" id="set-pond-max" placeholder="10'0&quot;">
+          </div>
+          <!-- Live calculation preview -->
+          <div style="background:var(--bg3);border-radius:var(--r2);padding:10px;margin-bottom:10px;" id="pond-auto-preview">
+            <div style="font-size:11px;font-weight:600;color:var(--cyan);margin-bottom:6px;">📊 Live Calculation</div>
+            <div style="font-size:11px;color:var(--tx2);" id="pond-calc-display">Set values above to see calculation</div>
+          </div>
+          <button class="btn green" onclick="savePondAutoSettings()">💾 Save Auto Settings</button>
+          <div style="height:8px;"></div>
+          <button class="btn ghost" onclick="manualOverridePond()">✏️ Manual Override (current level)</button>
+        </div>
       </div>
     </div>
 
@@ -643,9 +708,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
           <div onclick="toggleSubSection('sch-morning-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(59,130,246,.08);">
             <span style="font-size:12px;font-weight:700;color:var(--blue);">☀️ FWPS Morning Shift</span>
-            <span style="font-size:10px;color:var(--tx3);" id="sch-morning-wrap-arrow">▼</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-morning-wrap-arrow">▲</span>
           </div>
-          <div id="sch-morning-wrap" style="padding:10px;display:none;">
+          <div id="sch-morning-wrap" style="padding:10px;display:block;">
             <div id="sch-morning-edit"></div>
           </div>
         </div>
@@ -653,9 +718,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
           <div onclick="toggleSubSection('sch-evening-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(59,130,246,.08);">
             <span style="font-size:12px;font-weight:700;color:var(--blue);">🌆 FWPS Evening Shift</span>
-            <span style="font-size:10px;color:var(--tx3);" id="sch-evening-wrap-arrow">▼</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-evening-wrap-arrow">▲</span>
           </div>
-          <div id="sch-evening-wrap" style="padding:10px;display:none;">
+          <div id="sch-evening-wrap" style="padding:10px;display:block;">
             <div id="sch-evening-edit"></div>
           </div>
         </div>
@@ -663,9 +728,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <div style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
           <div onclick="toggleSubSection('sch-kc-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(20,184,166,.08);">
             <span style="font-size:12px;font-weight:700;color:var(--teal);">🏘️ Community — Khaur City</span>
-            <span style="font-size:10px;color:var(--tx3);" id="sch-kc-wrap-arrow">▼</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-kc-wrap-arrow">▲</span>
           </div>
-          <div id="sch-kc-wrap" style="padding:10px;display:none;">
+          <div id="sch-kc-wrap" style="padding:10px;display:block;">
             <div id="sch-kc-edit"></div>
           </div>
         </div>
@@ -673,9 +738,9 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fh)
         <div style="background:rgba(20,184,166,.06);border:1px solid rgba(20,184,166,.2);border-radius:var(--r2);margin-bottom:8px;overflow:hidden;">
           <div onclick="toggleSubSection('sch-kkc-wrap')" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;background:rgba(20,184,166,.08);">
             <span style="font-size:12px;font-weight:700;color:var(--teal);">🏭 Community — Khaur Company</span>
-            <span style="font-size:10px;color:var(--tx3);" id="sch-kkc-wrap-arrow">▼</span>
+            <span style="font-size:10px;color:var(--tx3);" id="sch-kkc-wrap-arrow">▲</span>
           </div>
-          <div id="sch-kkc-wrap" style="padding:10px;display:none;">
+          <div id="sch-kkc-wrap" style="padding:10px;display:block;">
             <div id="sch-kkc-edit"></div>
           </div>
         </div>
@@ -1071,14 +1136,23 @@ let editModalCallback = null;
 
 // Live data (synced from Firebase)
 let lv = {
-  pond: {level:"0'0\"", max:"10'0\"", pct:0, updated:'', remarks:''},
+  pond: {level:"8'0\"", max:"8'0\"", pct:100, updated:'', remarks:'',
+    // Auto-calculation mode
+    autoMode: false,          // true = auto calculate, false = manual
+    inflowRate: 0,            // litres per minute when FW pumps running
+    outflowRate: 0,           // litres per minute when distributing
+    pondCapacityLitres: 5889263,  // Khaur Reservoir: 200x120x8ft = 1,555,948 Gal = 5.89M Litres
+    currentLitres: 5889263,       // starts full
+    inflowRate: 757,              // 2 x 12000 GPH Ikhlas pumps = 24000 GPH ÷ 60 × 3.785 = ~1514 L/min (both pumps)
+    outflowRate: 379,             // avg distribution ~100 GPH/min × 3.785
+  },
   pumps: [], // [{id,name,type,on,fault,runtimeMins,startEpoch}]
   operators: {fw:[], iw:[]}, // [{name,shift}]
   schedule: {
-    morning:[{area:'Junior Line',start:'05:00',end:'06:00'},{area:'C-Grades',start:'06:00',end:'07:15'},{area:'Hospital & Bangalows',start:'07:15',end:'09:00'},{area:'A-Grade & Raja A Grades',start:'09:00',end:'10:00'},{area:'PPF Plant',start:'',end:'',enabled:false,duration:0}],
-    evening:[{area:'Junior Line',start:'11:00',end:'12:00'},{area:'C-Grades',start:'12:00',end:'13:30'},{area:'Hospital & Bangalows',start:'13:30',end:'15:30'},{area:'A-Grade & Raja A Grades',start:'15:30',end:'16:30'},{area:'PPF Plant',start:'',end:'',enabled:false,duration:0}],
-    kc:[{area:'Khaur City',start:'08:00',end:'13:00'}],
-    kkc:[{area:'Khaur Company',start:'14:00',end:'19:00'}],
+    morning:[{area:'POL Colony & Offices',start:'05:00',end:'06:00'},{area:'C-Grades',start:'06:00',end:'07:15'},{area:'Hospital & Bangalows',start:'07:15',end:'09:00'},{area:'A-Grade & Raja A Grades',start:'09:00',end:'10:00'},{area:'PPF/KCDF Plant',start:'',end:'',enabled:false,duration:0}],
+    evening:[{area:'POL Colony & Offices',start:'11:00',end:'12:00'},{area:'C-Grades',start:'12:00',end:'13:30'},{area:'Hospital & Bangalows',start:'13:30',end:'15:30'},{area:'A-Grade & Raja A Grades',start:'15:30',end:'16:30'},{area:'PPF/KCDF Plant',start:'',end:'',enabled:false,duration:0}],
+    kc:[{area:'Khaur Village Water Tank',start:'08:00',end:'12:00'}],
+    kkc:[{area:'Khaur Company (Private) / Khaur Village',start:'13:00',end:'16:18'}],
     // Rotation: rotationStart = date when rotation cycle began (Khaur City day 1)
     // Pattern: Day 0,1 = KC | Day 2 = BREAK | Day 3,4 = KKC | Day 5 = BREAK | repeat (6-day cycle)
     rotationStart: null,  // YYYY-MM-DD — set by admin, auto-calculates going forward
@@ -1397,6 +1471,12 @@ function enterApp(){
   document.getElementById('main-hdr').style.display='flex';
   document.getElementById('main-tabs').style.display='flex';
   updateUserMenu();
+  // Auto-unlock settings for admin immediately
+  if(currentUser&&currentUser.role==='admin'){
+    settingsUnlocked=true;
+    document.getElementById('settings-lock').style.display='none';
+    document.getElementById('settings-content').style.display='block';
+  }
   initApp();
   setTimeout(applyPermissions, 2500);
 }
@@ -1413,14 +1493,16 @@ function initApp(){
 }
 
 function buildDefaultPumps(){
-  if(lv.pumps.length) return;
+  // Only skip if pumps exist AND have all required fields
+  if(lv.pumps.length>0&&lv.pumps[0].id&&lv.pumps[0].name) return;
   lv.pumps = [
-    {id:'fw1',name:'Fresh Water Pump-A',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
-    {id:'fw2',name:'Fresh Water Pump-B',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
-    {id:'fw3',name:'Fresh Water Pump-C',type:'fw',on:false,fault:'',runtimeMins:0,startEpoch:null},
-    {id:'iw1',name:'Ikhlas Water Pump-A',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
-    {id:'iw2',name:'Ikhlas Water Pump-B',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
-    {id:'iw3',name:'Ikhlas Water Pump-C',type:'iw',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+    {id:'fw1',name:'FW Pump-1 POL Colony (KSB MOVI 65/3)',type:'fw',model:'KSB MOVI 65/3',flowRate:12642,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'fw2',name:'FW Pump-2 Khaur Village Tank (KSB ETA 40/20)',type:'fw',model:'KSB ETA 40/20',flowRate:3600,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'fw3',name:'FW Pump-3 PPF/KCDF (KSB UPV 200-14/22)',type:'fw',model:'KSB UPV 200-14/22',flowRate:11622,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'fw4',name:'FW Pump-4 Khaur Company (KSB UPV 200-14/22)',type:'fw',model:'KSB UPV 200-14/22',flowRate:11622,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null},
+    {id:'iw1',name:'Ikhlas Pump-1 (40HP Well-1)',type:'iw',model:'KSB UPV 200-14/22',flowRate:12000,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+    {id:'iw2',name:'Ikhlas Pump-2 (40HP Well-4)',type:'iw',model:'KSB UPV 200-14/22',flowRate:12000,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
+    {id:'iw3',name:'Ikhlas Pump-3 (3HP Standby)',type:'iw',model:'Standby',flowRate:0,unit:'GPH',on:false,fault:'',runtimeMins:0,startEpoch:null,isIkhlas:true},
   ];
 }
 
@@ -1468,10 +1550,16 @@ function startFirebaseSync(){
       const fresh=Object.values(lv.registeredUsers||{}).find(u=>u.phone===currentUser.phone||u.id===currentUser.id);
       if(fresh){currentUser=fresh;localStorage.setItem('fwps_session',JSON.stringify({uid:fresh.id,phone:fresh.phone,name:fresh.name,role:fresh.role}));}
     }
+    // Rebuild everything after data loads
+    buildDefaultPumps();
+    buildDefaultOps();
     renderDashboard();
-    if(settingsUnlocked) buildSettingsForms();
+    if(settingsUnlocked){
+      buildSettingsForms();
+    }
     applyPermissions();
-    setSyncStatus(loaded?'ok':'ok');
+    setSyncStatus('ok');
+    console.log('Gist sync complete. Pumps:', lv.pumps.length, 'FW ops:', lv.operators.fw.length);
   }).catch(e=>{
     console.warn('Gist sync error:',e);
     setSyncStatus('err');
@@ -1511,6 +1599,8 @@ function setSyncStatus(s){
   }
   el.className='sync-badge '+(s==='ok'?'sync-ok':s==='err'||s==='auth'?'sync-err':'sync-pending');
   tx.textContent=s==='ok'?'Live':s==='err'?'Offline':s==='offline'?'Local':'Sync…';
+  const si=document.getElementById('settings-sync-info');
+  if(si){si.textContent=s==='ok'?'✅ Connected':s==='err'?'❌ Offline':'⏳ Connecting...';si.style.color=s==='ok'?'var(--green)':s==='err'?'var(--red)':'var(--amber)';}
 }
 
 function showDbSetupBanner(){
@@ -1647,8 +1737,10 @@ function renderPumpsDash(){
       const dotCls=p.on?'running':p.fault?'fault':'off';
       const stTxt=p.on?'Running':p.fault?p.fault:'Stopped';
       const stColor=p.on?'var(--green)':p.fault?'var(--amber)':'var(--tx3)';
+      const flowInfo=p.flowRate?`${(p.flowRate).toLocaleString()} GPH`:'';
       return `<div class="pump-card ${cls}">
         <div class="pump-name">${p.name}</div>
+        ${p.model?`<div style="font-size:9px;color:var(--tx3);margin-bottom:3px;">${p.model}${flowInfo?' · '+flowInfo:''}</div>`:''}
         <div style="display:flex;align-items:center;">
           <span class="pump-status-dot ${dotCls}"></span>
           <span class="pump-status-txt" style="color:${stColor};">${stTxt}</span>
@@ -2120,6 +2212,8 @@ function toggleSection(id){
 }
 
 function buildSettingsForms(){
+  // Always update data-bound displays regardless of lock state
+  updateAutoControlUI();
   if(!settingsUnlocked)return;
   buildDefaultPumps();
   buildDefaultOps();
@@ -2137,9 +2231,132 @@ function buildSettingsForms(){
 function buildPondSettings(){
   const el1=document.getElementById('set-pond-level');
   const el2=document.getElementById('set-pond-max');
-  if(el1)el1.value=lv.pond.level||"7'6\"";
+  const togEl=document.getElementById('pond-auto-toggle');
   if(el2)el2.value=lv.pond.max||"10'0\"";
+  const isAuto=!!lv.pond.autoMode;
+  if(togEl)togEl.checked=isAuto;
+  togglePondMode(isAuto);
+  if(!isAuto&&el1)el1.value=lv.pond.level||"7'6\"";
+  // Load auto settings
+  const capEl=document.getElementById('pond-capacity-l');
+  const curEl=document.getElementById('pond-current-l');
+  const inEl=document.getElementById('pond-inflow');
+  const outEl=document.getElementById('pond-outflow');
+  if(capEl)capEl.value=lv.pond.pondCapacityLitres||'';
+  if(curEl)curEl.value=lv.pond.currentLitres||'';
+  if(inEl)inEl.value=lv.pond.inflowRate||'';
+  if(outEl)outEl.value=lv.pond.outflowRate||'';
+  if(isAuto)updatePondAutoCalc();
 }
+
+function togglePondMode(auto){
+  lv.pond.autoMode=auto;
+  const manEl=document.getElementById('pond-manual-section');
+  const autoEl=document.getElementById('pond-auto-section');
+  const desc=document.getElementById('pond-mode-desc');
+  if(manEl)manEl.style.display=auto?'none':'block';
+  if(autoEl)autoEl.style.display=auto?'block':'none';
+  if(desc)desc.textContent=auto?'Auto: Real-time calculation from pump runtime & flow rates':'Manual: Enter level reading directly';
+}
+
+function updatePondAutoCalc(){
+  const cap=parseFloat((document.getElementById('pond-capacity-l')||{}).value)||lv.pond.pondCapacityLitres||0;
+  const cur=parseFloat((document.getElementById('pond-current-l')||{}).value)||lv.pond.currentLitres||0;
+  const inflow=parseFloat((document.getElementById('pond-inflow')||{}).value)||lv.pond.inflowRate||0;
+  const outflow=parseFloat((document.getElementById('pond-outflow')||{}).value)||lv.pond.outflowRate||0;
+  const dispEl=document.getElementById('pond-calc-display');
+  if(!dispEl||!cap)return;
+  const pct=cap>0?Math.min(100,Math.round(cur/cap*100)):0;
+  const netFlow=inflow-outflow; // L/min net change
+  const anyFWOn=lv.pumps.filter(p=>p.type==='fw').some(p=>p.on);
+  const inSchedule=isInDistributionNow();
+  const actualInflow=anyFWOn?inflow:0;
+  const actualOutflow=inSchedule?outflow:0;
+  const actualNet=actualInflow-actualOutflow;
+  const sign=actualNet>0?'+':actualNet<0?'-':'';
+  const timeToFull=actualNet>0?Math.round((cap-cur)/actualNet):null;
+  const timeToEmpty=actualNet<0?Math.round(cur/Math.abs(actualNet)):null;
+  dispEl.innerHTML=
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+    +'<div style="background:var(--bg2);border-radius:6px;padding:7px;"><div style="font-size:9px;color:var(--tx3);">CURRENT</div><div style="font-size:14px;font-weight:700;color:var(--cyan);">'+pct+'%</div><div style="font-size:10px;color:var(--tx2);">'+(cur/1000).toFixed(1)+'K / '+(cap/1000).toFixed(1)+'K L</div></div>'
+    +'<div style="background:var(--bg2);border-radius:6px;padding:7px;"><div style="font-size:9px;color:var(--tx3);">NET FLOW</div><div style="font-size:14px;font-weight:700;color:'+(actualNet>0?'var(--green)':actualNet<0?'var(--red)':'var(--tx3)')+';">'+(actualNet>0?'+':'')+actualNet+'</div><div style="font-size:10px;color:var(--tx2);">L/min</div></div>'
+    +'<div style="background:var(--bg2);border-radius:6px;padding:7px;"><div style="font-size:9px;color:var(--tx3);">PUMPS</div><div style="font-size:12px;font-weight:700;color:'+(anyFWOn?'var(--green)':'var(--tx3)')+';">'+(anyFWOn?'RUNNING':'STOPPED')+'</div><div style="font-size:10px;color:var(--tx2);">+'+actualInflow+' L/min</div></div>'
+    +'<div style="background:var(--bg2);border-radius:6px;padding:7px;"><div style="font-size:9px;color:var(--tx3);">SUPPLY</div><div style="font-size:12px;font-weight:700;color:'+(inSchedule?'var(--amber)':'var(--tx3)')+';">'+(inSchedule?'ACTIVE':'INACTIVE')+'</div><div style="font-size:10px;color:var(--tx2);">-'+actualOutflow+' L/min</div></div>'
+    +'</div>'
+    +(timeToFull?'<div style="font-size:10px;color:var(--green);margin-top:6px;">⏱ Full in ~'+Math.floor(timeToFull/60)+'h '+(timeToFull%60)+'m</div>':'')
+    +(timeToEmpty?'<div style="font-size:10px;color:var(--red);margin-top:6px;">⏱ Empty in ~'+Math.floor(timeToEmpty/60)+'h '+(timeToEmpty%60)+'m</div>':'');
+}
+
+function isInDistributionNow(){
+  const now=nowMins();
+  const allZones=[...(lv.schedule.morning||[]),...(lv.schedule.evening||[])].filter(z=>z.area!=='PPF Plant');
+  return allZones.some(z=>z.start&&z.end&&now>=t2m(z.start)&&now<t2m(z.end));
+}
+
+function savePondAutoSettings(){
+  const cap=parseFloat((document.getElementById('pond-capacity-l')||{}).value)||0;
+  const cur=parseFloat((document.getElementById('pond-current-l')||{}).value)||0;
+  const inflow=parseFloat((document.getElementById('pond-inflow')||{}).value)||0;
+  const outflow=parseFloat((document.getElementById('pond-outflow')||{}).value)||0;
+  const max=(document.getElementById('set-pond-max')||{}).value||"10'0\"";
+  lv.pond.pondCapacityLitres=cap;
+  lv.pond.currentLitres=cur;
+  lv.pond.inflowRate=inflow;
+  lv.pond.outflowRate=outflow;
+  lv.pond.max=max;
+  lv.pond.autoMode=true;
+  // Calculate current level display
+  calcAndUpdatePondLevel();
+  syncAll();
+  alert('✅ Auto pond settings saved!');
+}
+
+function manualOverridePond(){
+  const level=prompt("Enter current pond level (e.g. 7'6\"): ");
+  if(!level)return;
+  lv.pond.level=level;
+  const lIn=parseFI(level), mIn=parseFI(lv.pond.max)||120;
+  lv.pond.pct=Math.min(100,Math.round(lIn/mIn*100));
+  // Update litres estimate
+  if(lv.pond.pondCapacityLitres){
+    lv.pond.currentLitres=Math.round(lv.pond.pondCapacityLitres*(lv.pond.pct/100));
+  }
+  const now2=new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
+  lv.pond.updated=todayStr()+' '+now2;
+  syncAll();renderPondDash();
+  alert('✅ Pond level manually updated to '+level);
+}
+
+function calcAndUpdatePondLevel(){
+  if(!lv.pond.autoMode||!lv.pond.pondCapacityLitres) return;
+  const cap=lv.pond.pondCapacityLitres;
+  const cur=lv.pond.currentLitres||0;
+  const pct=Math.min(100,Math.max(0,Math.round(cur/cap*100)));
+  // Convert pct to feet/inches using max capacity
+  const maxIn=parseFI(lv.pond.max)||120;
+  const curIn=Math.round(maxIn*(pct/100));
+  const feet=Math.floor(curIn/12);
+  const inches=curIn%12;
+  lv.pond.level=feet+"'"+inches+'\"';
+  lv.pond.pct=pct;
+  const now2=new Date().toLocaleTimeString('en-PK',{hour:'2-digit',minute:'2-digit',hour12:false});
+  lv.pond.updated=todayStr()+' '+now2;
+}
+
+// Auto-update pond every 2 minutes when in auto mode
+setInterval(()=>{
+  if(!lv.pond.autoMode||!lv.pond.pondCapacityLitres) return;
+  const anyFWOn=lv.pumps.filter(p=>p.type==='fw').some(p=>p.on);
+  const inSchedule=isInDistributionNow();
+  const inflow=anyFWOn?(lv.pond.inflowRate||0):0;
+  const outflow=inSchedule?(lv.pond.outflowRate||0):0;
+  const net=(inflow-outflow)*2; // 2 minutes of flow
+  lv.pond.currentLitres=Math.max(0,Math.min(lv.pond.pondCapacityLitres,(lv.pond.currentLitres||0)+net));
+  calcAndUpdatePondLevel();
+  renderPondDash();
+  if(settingsUnlocked&&lv.pond.autoMode)updatePondAutoCalc();
+  syncAll();
+}, 120000); // every 2 minutes
 
 function parseFI(s){
   if(!s||s.trim()==='') return 0;
@@ -2173,8 +2390,12 @@ function savePondLevel(){
 function buildPumpSettings(){
   const el=document.getElementById('pump-settings-list');if(!el)return;
   if(!lv.pumps||lv.pumps.length===0){
-    el.innerHTML='<div style="text-align:center;padding:16px;color:var(--tx3);font-size:12px;">No pumps configured. Click Add FW/IW Pump below.</div>';
-    return;
+    // Try to rebuild defaults
+    buildDefaultPumps();
+    if(!lv.pumps||lv.pumps.length===0){
+      el.innerHTML='<div style="text-align:center;padding:16px;color:var(--tx3);font-size:12px;">Loading pumps... If this persists, check your connection.</div>';
+      return;
+    }
   }
   const FAULT_OPTS=['','Motor Problem','Pump Mechanical Fault','Electrical Tripping','Thunderstorm / Lightning','Power Failure','Routine Maintenance','Other'];
   el.innerHTML=lv.pumps.map((p,i)=>`
@@ -2441,10 +2662,14 @@ function resetPPFDaily(){
 function toggleSubSection(id){
   const el=document.getElementById(id);
   if(!el)return;
-  const open=el.style.display==='none'||el.style.display==='';
-  el.style.display=open?'block':'none';
+  const isHidden=el.style.display==='none'||el.style.display==='';
+  el.style.display=isHidden?'block':'none';
   const arrow=document.getElementById(id+'-arrow');
-  if(arrow)arrow.textContent=open?'▲':'▼';
+  if(arrow)arrow.textContent=isHidden?'▲':'▼';
+  // Rebuild list content when opening
+  if(isHidden){
+    buildScheduleSettings();
+  }
 }
 
 function saveRotationStart(){
@@ -2525,11 +2750,11 @@ function buildScheduleSettings(){
   const autoToggle=document.getElementById('auto-control-toggle');
   if(autoToggle)autoToggle.checked=!!lv.schedule.autoControl;
   updateAutoControlUI();
-  // Auto-open morning wrap so user sees content immediately
+  // Ensure all schedule subsections are open and show content
   ['sch-morning-wrap','sch-evening-wrap','sch-kc-wrap','sch-kkc-wrap'].forEach(id=>{
     const el=document.getElementById(id);
     const arrow=document.getElementById(id+'-arrow');
-    if(el&&el.style.display==='none'){el.style.display='block';if(arrow)arrow.textContent='▲';}
+    if(el){el.style.display='block';if(arrow)arrow.textContent='▲';}
   });
   // Load rotation start date
   const rotInp=document.getElementById('rotation-start-inp');
@@ -2540,7 +2765,7 @@ function buildScheduleSettings(){
   const buildList=(contId,zones)=>{
     const el=document.getElementById(contId);if(!el)return;
     el.innerHTML=zones.map((z,i)=>{
-      const isPPF = z.area==='PPF Plant';
+      const isPPF = z.area==='PPF Plant'||z.area==='PPF/KCDF Plant'||z.area==='PPF/KCDF';
       if(isPPF){
         return `<div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.25);border-radius:var(--r2);padding:10px;margin-bottom:6px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
