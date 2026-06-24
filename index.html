@@ -1007,6 +1007,7 @@ function loadDbConfig(){return Promise.resolve();}
 const GIST_FILENAME = 'fwps_data.json';
 let gistConnected = false;
 let _cachedGistData = null;
+let _gistDataLoaded = false; // guard: never push until Gist is loaded
 
 function isGistConfigured(){
   return GIST_ID && GIST_TOKEN;
@@ -1082,6 +1083,12 @@ async function dbSet(path, val){
 
 async function pushFullDataToGist(){
   if(!isGistConfigured()) return false;
+  // CRITICAL: Never push until we have loaded Gist data first
+  // This prevents overwriting Gist with empty app defaults
+  if(!_gistDataLoaded){
+    console.warn('Gist push blocked - data not loaded yet');
+    return false;
+  }
   try{
     // SAFETY: never wipe registeredUsers with empty object
     // If lv.registeredUsers is empty but Gist has users, preserve Gist data
@@ -1420,8 +1427,13 @@ function completeRegistration(){
   userData.id = key;
 
   lv.registeredUsers[key] = userData;
-  dbSet('registeredUsers/'+key, userData);
-  syncAll(); // Push full data to Gist
+  // Force push to Gist immediately (bypass syncAll guard)
+  // This ensures registration is saved even before Gist data was loaded
+  _gistDataLoaded = true; // we have at least this user's data
+  saveToStorage();
+  // Also save to separate users cache
+  try{localStorage.setItem('fwps_users',JSON.stringify(lv.registeredUsers));}catch(e){}
+  pushFullDataToGist();
 
   // Save session — keyed by stable phone key, never changes
   currentUser = userData;
@@ -1436,10 +1448,11 @@ function doLogin(){
   const err=document.getElementById('login-err');
   if(!pin){if(err)err.textContent='Enter your PIN.';return;}
 
-  // Find user from already-fetched lv.registeredUsers (populated during checkPhone)
   const user=Object.values(lv.registeredUsers||{}).find(u=>u.phone===pendingPhone);
-  if(!user){if(err)err.textContent='User not found. Please go back and check your number.';return;}
-
+  if(!user){
+    if(err)err.textContent='User not found. Please go back.';
+    return;
+  }
   if(String(user.pin)!==String(pin)){
     if(err)err.textContent='Incorrect PIN. Try again.';
     const pinEl=document.getElementById('login-pin');if(pinEl)pinEl.value='';
@@ -1612,6 +1625,7 @@ function startFirebaseSync(){
     applyPermissions();
     setSyncStatus('ok');
     window._gistSyncDone = true;
+    _gistDataLoaded = true; // now safe to push
   }).catch(e=>{
     console.warn('Gist sync error:',e);
     setSyncStatus('err');
@@ -1628,6 +1642,7 @@ function startFirebaseSync(){
       if(!data) return;
       applyGistData(data);
       saveToStorage();
+      _gistDataLoaded = true;
       renderDashboard();
       if(settingsUnlocked) buildSettingsForms();
       setSyncStatus('ok');
@@ -1636,8 +1651,8 @@ function startFirebaseSync(){
 }
 
 function syncAll(){
-  saveToStorage();
-  // Push to Gist with retry
+  saveToStorage(); // always save locally
+  if(!_gistDataLoaded) return; // don't push until Gist is loaded
   pushFullDataToGist().then(ok=>{
     if(ok) setSyncStatus('ok');
   }).catch(()=>{});
@@ -1695,7 +1710,15 @@ function loadFromStorage(){
       }
       if(d.schedule) Object.assign(lv.schedule, d.schedule);
       if(d.leakages&&Object.keys(d.leakages).length>0) lv.leakages=d.leakages;
-      if(d.registeredUsers) lv.registeredUsers=d.registeredUsers; // always restore from cache
+      if(d.registeredUsers&&Object.keys(d.registeredUsers).length>0){
+        lv.registeredUsers=d.registeredUsers;
+      } else {
+        // Try separate users cache
+        try{
+          const uc=localStorage.getItem('fwps_users');
+          if(uc){const u=JSON.parse(uc);if(Object.keys(u).length>0)lv.registeredUsers=u;}
+        }catch(e){}
+      }
       if(d.pinResetRequests) lv.pinResetRequests=d.pinResetRequests;
       // Ensure pond fields
       if(!lv.pond.inflowRate) lv.pond.inflowRate=1514;
@@ -1710,6 +1733,8 @@ function loadFromStorage(){
   // Always ensure pumps and operators exist
   if(!lv.pumps||lv.pumps.length===0) buildDefaultPumps();
   if(!lv.operators||!lv.operators.fw||lv.operators.fw.length===0) buildDefaultOps();
+  // If we have cached Gist data locally, safe to push updates
+  if(localStorage.getItem('fwps_lv')) _gistDataLoaded = true;
 }
 
 // ══════════════════════════════════════════════════════════
