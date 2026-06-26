@@ -1,4 +1,4 @@
-const CACHE = 'fwps-v43';
+const CACHE = 'fwps-v44';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

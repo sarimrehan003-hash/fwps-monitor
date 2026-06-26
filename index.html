@@ -1082,51 +1082,45 @@ async function dbSet(path, val){
 }
 
 async function pushFullDataToGist(){
-  if(!isGistConfigured()) return false;
-  // CRITICAL: Never push until we have loaded Gist data first
-  // This prevents overwriting Gist with empty app defaults
-  if(!_gistDataLoaded){
-    console.warn('Gist push blocked - data not loaded yet');
-    return false;
-  }
+  if(!GIST_ID||!GIST_TOKEN) return false;
   try{
-    // SAFETY: never wipe registeredUsers with empty object
-    // If lv.registeredUsers is empty but Gist has users, preserve Gist data
-    let safeUsers = lv.registeredUsers||{};
-    if(Object.keys(safeUsers).length===0 && _cachedGistData && 
-       Object.keys(_cachedGistData.registeredUsers||{}).length>0){
-      safeUsers = _cachedGistData.registeredUsers;
-      lv.registeredUsers = safeUsers; // restore into lv too
+    // READ current Gist first (prevents wiping data)
+    const readR = await fetch('https://api.github.com/gists/'+GIST_ID,{
+      headers:{'Authorization':'token '+GIST_TOKEN,'Accept':'application/vnd.github.v3+json'},
+      signal:AbortSignal.timeout(10000)
+    });
+    let existing = {};
+    if(readR.ok){
+      const gd = await readR.json();
+      try{ existing = JSON.parse(gd.files[GIST_FILENAME].content||'{}'); }catch(e){}
     }
-    const fullData = {
-      pond:lv.pond,
-      pumps:lv.pumps,
-      operators:lv.operators,
-      schedule:lv.schedule,
-      leakages:lv.leakages,
-      rec:rec,
-      registeredUsers:safeUsers,
-      pinResetRequests:lv.pinResetRequests||{}
+    // MERGE: protect critical fields
+    const merged = {
+      pond: (lv.pond&&lv.pond.pondCapacityLitres>0) ? lv.pond : (existing.pond||lv.pond),
+      pumps: (lv.pumps&&lv.pumps.length>0) ? lv.pumps : (existing.pumps||[]),
+      operators: lv.operators,
+      schedule: lv.schedule,
+      leakages: lv.leakages||{},
+      rec: rec||{},
+      registeredUsers: (Object.keys(lv.registeredUsers||{}).length>0)
+        ? lv.registeredUsers : (existing.registeredUsers||{}),
+      pinResetRequests: lv.pinResetRequests||{}
     };
-    const content = JSON.stringify(fullData, null, 2);
-    const body = JSON.stringify({files:{[GIST_FILENAME]:{content}}});
-    const r = await fetch('https://api.github.com/gists/'+GIST_ID, {
+    // WRITE merged data
+    const writeR = await fetch('https://api.github.com/gists/'+GIST_ID,{
       method:'PATCH',
-      headers:{
-        'Authorization':'token '+GIST_TOKEN,
-        'Content-Type':'application/json',
-        'Accept':'application/vnd.github.v3+json'
-      },
-      body,
+      headers:{'Authorization':'token '+GIST_TOKEN,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body:JSON.stringify({files:{[GIST_FILENAME]:{content:JSON.stringify(merged,null,2)}}}),
       signal:AbortSignal.timeout(15000)
     });
-    if(r.ok){gistConnected=true;setSyncStatus('ok');return true;}
-    console.warn('Gist push failed:',r.status);
-    gistConnected=false;setSyncStatus('err');return false;
-  }catch(e){
-    console.warn('Gist push error:',e);
-    gistConnected=false;setSyncStatus('err');return false;
-  }
+    if(writeR.ok){
+      gistConnected=true; setSyncStatus('ok');
+      if(Object.keys(merged.registeredUsers).length>0) lv.registeredUsers=merged.registeredUsers;
+      if(merged.pond&&merged.pond.pondCapacityLitres>0) lv.pond=merged.pond;
+      return true;
+    }
+    setSyncStatus('err'); return false;
+  }catch(e){ console.warn('Gist push:',e.message); setSyncStatus('err'); return false; }
 }
 
 async function dbPush(path, val){
@@ -1427,13 +1421,9 @@ function completeRegistration(){
   userData.id = key;
 
   lv.registeredUsers[key] = userData;
-  // Force push to Gist immediately (bypass syncAll guard)
-  // This ensures registration is saved even before Gist data was loaded
-  _gistDataLoaded = true; // we have at least this user's data
   saveToStorage();
-  // Also save to separate users cache
   try{localStorage.setItem('fwps_users',JSON.stringify(lv.registeredUsers));}catch(e){}
-  pushFullDataToGist();
+  pushFullDataToGist(); // read-modify-write: safe immediately
 
   // Save session — keyed by stable phone key, never changes
   currentUser = userData;
@@ -1642,7 +1632,6 @@ function startFirebaseSync(){
       if(!data) return;
       applyGistData(data);
       saveToStorage();
-      _gistDataLoaded = true;
       renderDashboard();
       if(settingsUnlocked) buildSettingsForms();
       setSyncStatus('ok');
@@ -1651,11 +1640,8 @@ function startFirebaseSync(){
 }
 
 function syncAll(){
-  saveToStorage(); // always save locally
-  if(!_gistDataLoaded) return; // don't push until Gist is loaded
-  pushFullDataToGist().then(ok=>{
-    if(ok) setSyncStatus('ok');
-  }).catch(()=>{});
+  saveToStorage();
+  pushFullDataToGist(); // read-modify-write: safe anytime
 }
 
 function setSyncStatus(s){
